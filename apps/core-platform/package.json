@@ -9,11 +9,20 @@
   },
   "dependencies": {
     "@leetcad/shared-types": "*",
+    "@nestjs/common": "^11.1.28",
+    "@nestjs/core": "^11.1.28",
+    "@nestjs/jwt": "^11.0.2",
+    "@nestjs/passport": "^11.0.5",
+    "@nestjs/platform-fastify": "^11.1.28",
+    "passport": "^0.7.0",
+    "passport-jwt": "^4.0.1",
     "pg": "^8.22.0",
     "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
     "typeorm": "^1.1.0"
   },
   "devDependencies": {
+    "@types/passport-jwt": "^4.0.1",
     "typescript": "^5.8.0"
   }
 }
