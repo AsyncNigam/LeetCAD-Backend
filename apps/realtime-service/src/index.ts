@@ -33,8 +33,23 @@ io.on("connection", (socket) => {
 });
 
 async function startConsumer(): Promise<{ connection: amqplib.ChannelModel; channel: amqplib.Channel }> {
-  const connection = await amqplib.connect("amqp://rmq_admin:local_password@localhost:5672");
+  const connection = await amqplib.connect("amqp://guest:guest@localhost:5672");
   const channel = await connection.createChannel();
+
+  connection.on("error", (err) => {
+    console.error("[realtime-service] RabbitMQ connection error:", err.message);
+  });
+
+  connection.on("close", () => {
+    console.warn("[realtime-service] RabbitMQ connection closed, reconnecting in 5s...");
+    setTimeout(() => {
+      startConsumerWithRetry();
+    }, 5000);
+  });
+
+  channel.on("error", (err) => {
+    console.error("[realtime-service] RabbitMQ channel error:", err.message);
+  });
 
   await channel.assertQueue("leetcad.realtime.queue", { durable: true });
   await channel.bindQueue("leetcad.realtime.queue", "leetcad.events", "AssessmentCompleted");
@@ -63,6 +78,19 @@ async function startConsumer(): Promise<{ connection: amqplib.ChannelModel; chan
   return { connection, channel };
 }
 
+async function startConsumerWithRetry(): Promise<void> {
+  try {
+    const { connection, channel } = await startConsumer();
+    rmqConnection = connection;
+    rmqChannel = channel;
+  } catch (err) {
+    console.error("[realtime-service] Failed to reconnect to RabbitMQ, retrying in 5s...", (err as Error).message);
+    setTimeout(() => {
+      startConsumerWithRetry();
+    }, 5000);
+  }
+}
+
 const PORT = 3001;
 
 let rmqConnection: amqplib.ChannelModel | null = null;
@@ -70,10 +98,7 @@ let rmqChannel: amqplib.Channel | null = null;
 
 httpServer.listen(PORT, async () => {
   console.log(`[realtime-service] WebSocket server listening on port ${PORT}`);
-
-  const { connection, channel } = await startConsumer();
-  rmqConnection = connection;
-  rmqChannel = channel;
+  await startConsumerWithRetry();
 });
 
 const shutdown = async () => {

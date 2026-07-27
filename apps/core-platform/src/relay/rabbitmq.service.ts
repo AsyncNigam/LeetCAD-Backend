@@ -13,7 +13,7 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit() {
     this.connection = await amqplib.connect(
-      "amqp://rmq_admin:local_password@localhost:5672",
+      "amqp://guest:guest@localhost:5672",
     );
     this.channel = await this.connection.createChannel();
 

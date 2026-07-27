@@ -13,8 +13,8 @@ export class StorageService {
       endpoint: "http://localhost:9000",
       region: "us-east-1",
       credentials: {
-        accessKeyId: "minio_admin",
-        secretAccessKey: "local_password",
+        accessKeyId: "leetcad",
+        secretAccessKey: "leetcad_dev",
       },
       forcePathStyle: true,
     });

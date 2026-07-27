@@ -18,8 +18,8 @@ const s3 = new S3Client({
   endpoint: "http://localhost:9000",
   region: "us-east-1",
   credentials: {
-    accessKeyId: "minio_admin",
-    secretAccessKey: "local_password",
+    accessKeyId: "leetcad",
+    secretAccessKey: "leetcad_dev",
   },
   forcePathStyle: true,
 });
@@ -31,7 +31,7 @@ const genai = new GoogleGenAI({
 const redis = new Redis("redis://localhost:6379");
 
 const pool = new pg.Pool({
-  connectionString: "postgresql://leetcad_admin:local_password@localhost:5432/leetcad_db",
+  connectionString: "postgresql://leetcad:leetcad_dev@localhost:5432/leetcad_db",
 });
 
 async function cleanupFile(filePath: string): Promise<void> {
@@ -83,8 +83,21 @@ function runPython(inputPath: string, outputPath: string): Promise<{ stdout: str
 }
 
 async function main(): Promise<void> {
-  const connection = await amqplib.connect("amqp://rmq_admin:local_password@localhost:5672");
+  const connection = await amqplib.connect("amqp://guest:guest@localhost:5672");
   const channel = await connection.createChannel();
+
+  connection.on("error", (err) => {
+    console.error("[assessment-engine] RabbitMQ connection error:", err.message);
+  });
+
+  connection.on("close", () => {
+    console.error("[assessment-engine] RabbitMQ connection closed unexpectedly, exiting...");
+    process.exit(1);
+  });
+
+  channel.on("error", (err) => {
+    console.error("[assessment-engine] RabbitMQ channel error:", err.message);
+  });
 
   await channel.prefetch(1);
 
