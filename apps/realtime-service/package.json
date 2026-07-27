@@ -8,9 +8,13 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@leetcad/shared-types": "*"
+    "@leetcad/shared-types": "*",
+    "@socket.io/redis-adapter": "^8.3.0",
+    "ioredis": "^5.11.1",
+    "socket.io": "^4.8.3"
   },
   "devDependencies": {
+    "@types/node": "^26.1.1",
     "typescript": "^5.8.0"
   }
 }
