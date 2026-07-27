@@ -3,6 +3,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { AuthModule } from "./auth/auth.module.js";
 import { StorageModule } from "./storage/storage.module.js";
 import { SubmissionsModule } from "./submissions/submissions.module.js";
+import { RelayModule } from "./relay/relay.module.js";
 import { Submission } from "./entities/Submission.js";
 import { OutboxEvent } from "./entities/OutboxEvent.js";
 
@@ -21,7 +22,9 @@ import { OutboxEvent } from "./entities/OutboxEvent.js";
     AuthModule,
     StorageModule,
     SubmissionsModule,
+    RelayModule,
   ],
 })
 export class AppModule {}
+
 
