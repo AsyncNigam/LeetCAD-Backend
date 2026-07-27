@@ -8,8 +8,11 @@ import { Readable } from "node:stream";
 import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { GoogleGenAI } from "@google/genai";
 import amqplib from "amqplib";
+import Redis from "ioredis";
+import pg from "pg";
 import { v4 as uuidv4 } from "uuid";
-import type { SubmissionCreatedPayload } from "@leetcad/shared-types";
+import { SubmissionStatus } from "@leetcad/shared-types";
+import type { SubmissionCreatedPayload, AssessmentCompletedPayload } from "@leetcad/shared-types";
 
 const s3 = new S3Client({
   endpoint: "http://localhost:9000",
@@ -23,6 +26,12 @@ const s3 = new S3Client({
 
 const genai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY || "local_mock_key",
+});
+
+const redis = new Redis("redis://localhost:6379");
+
+const pool = new pg.Pool({
+  connectionString: "postgresql://leetcad_admin:local_password@localhost:5432/leetcad_db",
 });
 
 async function cleanupFile(filePath: string): Promise<void> {
@@ -78,6 +87,18 @@ async function main(): Promise<void> {
   const channel = await connection.createChannel();
 
   await channel.prefetch(1);
+
+  const shutdown = async () => {
+    console.log("[assessment-engine] Shutting down gracefully...");
+    await channel.close();
+    await connection.close();
+    await pool.end();
+    redis.disconnect();
+    process.exit(0);
+  };
+
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
 
   console.log("[assessment-engine] Waiting for messages on leetcad.assessment.queue");
 
@@ -169,10 +190,49 @@ async function main(): Promise<void> {
         ContentType: "image/png",
       }));
 
+      const fence = await redis.incr(`submission:${payload.submissionId}:fence`);
+
+      if (fence > 1) {
+        console.warn(`[assessment-engine] Zombie worker or duplicate delivery detected. Dropping write. submissionId=${payload.submissionId} fence=${fence}`);
+        channel.ack(msg);
+        return;
+      }
+
+      const score = 85.5;
+
+      await pool.query(
+        `UPDATE submissions SET status = $1, score = $2, "aiReportId" = $3, metrics = $4 WHERE id = $5`,
+        [
+          SubmissionStatus.COMPLETED,
+          score,
+          reportKey,
+          JSON.stringify(metrics),
+          payload.submissionId,
+        ],
+      );
+
+      const completedPayload: AssessmentCompletedPayload = {
+        submissionId: payload.submissionId,
+        userId: payload.userId,
+        status: SubmissionStatus.COMPLETED,
+        score,
+        aiReportId: reportKey,
+        metrics,
+        renderUrls: [renderKey],
+      };
+
+      channel.publish(
+        "leetcad.events",
+        "AssessmentCompleted",
+        Buffer.from(JSON.stringify(completedPayload)),
+        { persistent: true, contentType: "application/json" },
+      );
+
       console.log(`[assessment-engine] Assessment complete for ${payload.submissionId}:`, {
         metrics,
         reportKey,
         renderKey,
+        fence,
       });
 
       channel.ack(msg);

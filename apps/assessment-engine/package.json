@@ -12,13 +12,16 @@
     "@google/genai": "^2.13.0",
     "@leetcad/shared-types": "^0.0.0",
     "amqplib": "^2.0.1",
+    "ioredis": "^5.11.1",
     "mime-types": "^3.0.2",
+    "pg": "^8.22.0",
     "uuid": "^14.0.1"
   },
   "devDependencies": {
     "@types/amqplib": "^0.10.8",
     "@types/mime-types": "^3.0.1",
     "@types/node": "^26.1.1",
+    "@types/pg": "^8.20.0",
     "@types/uuid": "^10.0.0",
     "typescript": "^5.8.0"
   }
