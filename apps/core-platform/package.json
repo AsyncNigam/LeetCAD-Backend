@@ -8,7 +8,10 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@leetcad/shared-types": "*"
+    "@leetcad/shared-types": "*",
+    "pg": "^8.22.0",
+    "reflect-metadata": "^0.2.2",
+    "typeorm": "^1.1.0"
   },
   "devDependencies": {
     "typescript": "^5.8.0"
