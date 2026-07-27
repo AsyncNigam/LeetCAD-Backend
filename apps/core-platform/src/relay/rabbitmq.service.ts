@@ -7,16 +7,28 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
   private connection: amqplib.ChannelModel | null = null;
   private channel: amqplib.Channel | null = null;
   private readonly exchange = "leetcad.events";
+  private readonly dlx = "leetcad.dlx";
+  private readonly dlq = "leetcad.dlq";
+  private readonly workerQueue = "leetcad.assessment.queue";
 
   async onModuleInit() {
     this.connection = await amqplib.connect(
       "amqp://rmq_admin:local_password@localhost:5672",
     );
     this.channel = await this.connection.createChannel();
-    await this.channel.assertExchange(this.exchange, "topic", {
+
+    await this.channel.assertExchange(this.dlx, "topic", { durable: true });
+    await this.channel.assertQueue(this.dlq, { durable: true });
+    await this.channel.bindQueue(this.dlq, this.dlx, "#");
+
+    await this.channel.assertExchange(this.exchange, "topic", { durable: true });
+    await this.channel.assertQueue(this.workerQueue, {
       durable: true,
+      arguments: { "x-dead-letter-exchange": this.dlx },
     });
-    this.logger.log(`Connected to RabbitMQ, exchange "${this.exchange}" asserted`);
+    await this.channel.bindQueue(this.workerQueue, this.exchange, "SubmissionCreated");
+
+    this.logger.log("RabbitMQ topology asserted (events + DLX/DLQ)");
   }
 
   async onModuleDestroy() {
