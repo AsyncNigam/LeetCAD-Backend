@@ -30,6 +30,8 @@ async function cleanupFile(filePath: string): Promise<void> {
   }
 }
 
+const PROCESS_TIMEOUT_MS = 60_000;
+
 function runPython(inputPath: string, outputPath: string): Promise<{ stdout: string; stderr: string; code: number }> {
   return new Promise((resolve, reject) => {
     const proc = spawn("python3", [
@@ -40,12 +42,27 @@ function runPython(inputPath: string, outputPath: string): Promise<{ stdout: str
 
     let stdout = "";
     let stderr = "";
+    let killed = false;
+
+    const timer = setTimeout(() => {
+      killed = true;
+      proc.kill("SIGKILL");
+    }, PROCESS_TIMEOUT_MS);
 
     proc.stdout.on("data", (chunk: Buffer) => { stdout += chunk.toString(); });
     proc.stderr.on("data", (chunk: Buffer) => { stderr += chunk.toString(); });
 
-    proc.on("error", reject);
+    proc.on("error", (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+
     proc.on("close", (code) => {
+      clearTimeout(timer);
+      if (killed) {
+        reject(new Error(`Process killed due to ${PROCESS_TIMEOUT_MS / 1000}s timeout`));
+        return;
+      }
       resolve({ stdout, stderr, code: code ?? 1 });
     });
   });
