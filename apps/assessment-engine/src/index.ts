@@ -1,11 +1,12 @@
 import { createWriteStream } from "node:fs";
-import { unlink } from "node:fs/promises";
+import { readFile, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
 import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
-import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { GoogleGenAI } from "@google/genai";
 import amqplib from "amqplib";
 import { v4 as uuidv4 } from "uuid";
 import type { SubmissionCreatedPayload } from "@leetcad/shared-types";
@@ -18,6 +19,10 @@ const s3 = new S3Client({
     secretAccessKey: "local_password",
   },
   forcePathStyle: true,
+});
+
+const genai = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY || "local_mock_key",
 });
 
 async function cleanupFile(filePath: string): Promise<void> {
@@ -109,7 +114,66 @@ async function main(): Promise<void> {
       }
 
       const analysisResult = JSON.parse(result.stdout);
-      console.log(`[assessment-engine] Analysis complete for ${payload.submissionId}:`, analysisResult);
+      const { metrics } = analysisResult;
+
+      const pngBuffer = await readFile(outputPath);
+      const pngBase64 = pngBuffer.toString("base64");
+
+      const geminiResponse = await genai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [
+          {
+            role: "user",
+            parts: [
+              {
+                inlineData: {
+                  mimeType: "image/png",
+                  data: pngBase64,
+                },
+              },
+              {
+                text: [
+                  "You are a senior mechanical engineer performing a qualitative design review of a CAD model.",
+                  "The following physical metrics were extracted from the model:",
+                  `- Volume: ${metrics.volume} cubic units`,
+                  `- Surface Area: ${metrics.surfaceArea} square units`,
+                  `- Center of Mass: [${metrics.centerOfMass.join(", ")}]`,
+                  "",
+                  "Based on the rendered image and these metrics, provide a detailed engineering review.",
+                  "Assess structural integrity, material efficiency (surface-to-volume ratio),",
+                  "symmetry, center of mass positioning, and any potential manufacturing concerns.",
+                  "Format your response as a structured Markdown report.",
+                ].join("\n"),
+              },
+            ],
+          },
+        ],
+      });
+
+      const aiReport = geminiResponse.text ?? "No report generated.";
+
+      const reportKey = `reports/${payload.submissionId}.md`;
+      const renderKey = `renders/${payload.submissionId}.png`;
+
+      await s3.send(new PutObjectCommand({
+        Bucket: "leetcad",
+        Key: reportKey,
+        Body: aiReport,
+        ContentType: "text/markdown",
+      }));
+
+      await s3.send(new PutObjectCommand({
+        Bucket: "leetcad",
+        Key: renderKey,
+        Body: pngBuffer,
+        ContentType: "image/png",
+      }));
+
+      console.log(`[assessment-engine] Assessment complete for ${payload.submissionId}:`, {
+        metrics,
+        reportKey,
+        renderKey,
+      });
 
       channel.ack(msg);
     } catch (error) {
