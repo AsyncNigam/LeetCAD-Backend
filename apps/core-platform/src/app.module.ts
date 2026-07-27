@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
+import { ScheduleModule } from "@nestjs/schedule";
 import { AuthModule } from "./auth/auth.module.js";
 import { StorageModule } from "./storage/storage.module.js";
 import { SubmissionsModule } from "./submissions/submissions.module.js";
@@ -9,6 +10,7 @@ import { OutboxEvent } from "./entities/OutboxEvent.js";
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     TypeOrmModule.forRoot({
       type: "postgres",
       host: "localhost",
