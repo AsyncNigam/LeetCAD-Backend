@@ -1,10 +1,9 @@
-import { Controller, Post, Body, Req, UseGuards } from "@nestjs/common";
+import { Controller, Post, Body, Req, UseGuards, UsePipes } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard.js";
 import { StorageService } from "./storage.service.js";
-
-interface PresignedUrlRequest {
-  filename: string;
-}
+import { ZodValidationPipe } from "../common/pipes/zod-validation.pipe.js";
+import { PresignedUrlSchema } from "./dto/presigned-url.dto.js";
+import type { PresignedUrlDto } from "./dto/presigned-url.dto.js";
 
 interface AuthenticatedRequest {
   user: { userId: string };
@@ -16,9 +15,10 @@ export class StorageController {
 
   @Post("presigned-url")
   @UseGuards(JwtAuthGuard)
+  @UsePipes(new ZodValidationPipe(PresignedUrlSchema))
   async getPresignedUrl(
     @Req() req: AuthenticatedRequest,
-    @Body() body: PresignedUrlRequest,
+    @Body() body: PresignedUrlDto,
   ) {
     return this.storageService.getPresignedUploadUrl(
       req.user.userId,
