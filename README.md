@@ -2,6 +2,14 @@
 
 Event-driven CAD assessment platform. Turborepo monorepo with NestJS/Fastify API edge, Python subprocess workers, and horizontally scalable WebSocket delivery.
 
+## Tech Stack
+
+- **Core:** Node.js, NestJS, Fastify, TypeScript
+- **Data & Messaging:** PostgreSQL 16, RabbitMQ 3.13, Redis 7
+- **Storage & AI:** MinIO (S3-compatible), Google Gemini 2.5 Flash Vision
+- **Workers:** Python 3.10, CadQuery, PyVista
+- **Observability & Security:** OpenTelemetry, Winston, Zod, Helmet
+
 ## Architecture
 
 ```mermaid
@@ -223,6 +231,12 @@ docker compose up -d
 docker compose ps          # Verify all 4 services are healthy
 ```
 
+## Prerequisites
+
+- **Node.js** v20+
+- **Docker & Docker Compose** (for PostgreSQL, Redis, RabbitMQ, MinIO)
+- **Python** 3.10+ (for the assessment-engine worker)
+
 ## Quick Start
 
 ```bash
@@ -257,4 +271,4 @@ Interactive Swagger UI available at `http://localhost:3000/api` when the core-pl
 
 ## License
 
-Proprietary. All rights reserved.
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
