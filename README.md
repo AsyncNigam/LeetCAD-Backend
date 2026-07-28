@@ -1,16 +1,55 @@
-# LeetCAD
+<div align="center">
 
-Event-driven CAD assessment platform. Turborepo monorepo with NestJS/Fastify API edge, Python subprocess workers, and horizontally scalable WebSocket delivery.
+# ⚙️ LeetCAD
 
-## Tech Stack
+**Event-driven CAD assessment platform with AI-powered engineering review.**
 
-- **Core:** Node.js, NestJS, Fastify, TypeScript
-- **Data & Messaging:** PostgreSQL 16, RabbitMQ 3.13, Redis 7
-- **Storage & AI:** MinIO (S3-compatible), Google Gemini 2.5 Flash Vision
-- **Workers:** Python 3.10, CadQuery, PyVista
-- **Observability & Security:** OpenTelemetry, Winston, Zod, Helmet
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![NestJS](https://img.shields.io/badge/NestJS-10.x-E0234E?logo=nestjs&logoColor=white)](https://nestjs.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![RabbitMQ](https://img.shields.io/badge/RabbitMQ-3.13-FF6600?logo=rabbitmq&logoColor=white)](https://www.rabbitmq.com/)
+[![Redis](https://img.shields.io/badge/Redis-7-DC382D?logo=redis&logoColor=white)](https://redis.io/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## Architecture
+*A Turborepo monorepo with NestJS/Fastify API edge, isolated Python subprocess workers, Gemini Vision AI integration, and horizontally scalable WebSocket delivery — designed to demonstrate production-grade distributed systems patterns.*
+
+</div>
+
+---
+
+## 📋 Table of Contents
+
+- [Tech Stack](#-tech-stack)
+- [Architecture](#-architecture)
+- [Execution Flow](#-execution-flow)
+- [Monorepo Structure](#-monorepo-structure)
+- [Database Schema](#-database-schema)
+- [API Specification](#-api-specification)
+- [System Design & Mitigation Strategies](#-system-design--mitigation-strategies)
+- [Prerequisites](#-prerequisites)
+- [Quick Start](#-quick-start)
+- [Environment Variables](#-environment-variables)
+- [Testing](#-testing)
+- [Infrastructure](#-infrastructure)
+- [License](#-license)
+
+---
+
+## 🛠 Tech Stack
+
+| Layer | Technologies |
+|---|---|
+| **Core** | Node.js, NestJS, Fastify, TypeScript |
+| **Data & Messaging** | PostgreSQL 16, RabbitMQ 3.13 (DLX/DLQ), Redis 7 |
+| **Storage & AI** | MinIO (S3-compatible), Google Gemini 2.5 Flash Vision |
+| **Workers** | Python 3.10, CadQuery, PyVista, OpenCASCADE |
+| **Observability** | OpenTelemetry (auto-instrumentation), Winston (structured JSON) |
+| **Security** | Google OAuth2, JWT (Passport), Zod, Helmet, CORS, Throttler |
+| **DevOps** | Docker Compose, Turborepo |
+
+---
+
+## 🏗 Architecture
 
 ```mermaid
 flowchart LR
@@ -59,7 +98,60 @@ flowchart LR
     NestJS -. "Fencing Token" .-> REDIS
 ```
 
-## Monorepo Structure
+---
+
+## 🔄 Execution Flow
+
+> The complete lifecycle of a CAD submission — from upload to real-time result delivery.
+
+```
+ ┌─────────────────────────────────────────────────────────────────────────┐
+ │                         REQUEST PATH                                    │
+ ├─────────────────────────────────────────────────────────────────────────┤
+ │                                                                         │
+ │  1 │ Client calls POST /storage/presigned-url                           │
+ │    │ → API returns a signed MinIO PUT URL + fileKey                     │
+ │    │                                                                    │
+ │  2 │ Client uploads CAD file (STEP/STL) directly to MinIO               │
+ │    │ → Bypasses API server entirely (no memory pressure)                │
+ │    │                                                                    │
+ │  3 │ Client calls POST /submissions/complete { fileKey }                │
+ │    │ → API inserts Submission record + OutboxEvent                      │
+ │    │ → Both writes in a SINGLE PostgreSQL transaction                   │
+ │    │                                                                    │
+ ├─────────────────────────────────────────────────────────────────────────┤
+ │                         ASYNC PIPELINE                                  │
+ ├─────────────────────────────────────────────────────────────────────────┤
+ │    │                                                                    │
+ │  4 │ Outbox Relay polls with FOR UPDATE SKIP LOCKED                     │
+ │    │ → Publishes SubmissionUploaded to RabbitMQ exchange                 │
+ │    │ → Marks outbox row as processed                                    │
+ │    │                                                                    │
+ │  5 │ Assessment Engine consumes message                                 │
+ │    │ → Downloads CAD file from MinIO to temp directory                   │
+ │    │ → Spawns isolated Python subprocess (CadQuery + PyVista)           │
+ │    │ → Enforces 60-second SIGKILL hard timeout                          │
+ │    │ → Parses stdout JSON: { volume, surfaceArea, centerOfMass }        │
+ │    │                                                                    │
+ │  6 │ Worker sends PNG render + metrics to Gemini 2.5 Flash              │
+ │    │ → Receives Markdown engineering review                             │
+ │    │ → Uploads PNG + report to MinIO (Claim-Check pattern)              │
+ │    │                                                                    │
+ │  7 │ Worker checks Redis fencing token (INCR)                           │
+ │    │ → If fence = 1: writes results to PostgreSQL                       │
+ │    │ → If fence > 1: drops write (zombie/duplicate detected)            │
+ │    │ → Publishes AssessmentCompleted event to RabbitMQ                   │
+ │    │                                                                    │
+ │  8 │ Realtime Service consumes AssessmentCompleted                      │
+ │    │ → Updates Redis leaderboard (ZADD)                                 │
+ │    │ → Broadcasts to user's WebSocket room via Redis adapter            │
+ │    │                                                                    │
+ └─────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 📁 Monorepo Structure
 
 ```
 ├── apps/
@@ -69,10 +161,211 @@ flowchart LR
 ├── packages/
 │   └── shared-types/           Cross-service TypeScript interfaces and enums
 ├── docker-compose.yml          PostgreSQL, Redis, RabbitMQ, MinIO
+├── .env.example                Environment variable template
 └── turbo.json                  Build pipeline configuration
 ```
 
-## System Design & Mitigation Strategies
+---
+
+## 🗄 Database Schema
+
+### `users`
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | `uuid` | `PK, auto-generated` | Unique user identifier |
+| `email` | `varchar` | `UNIQUE, NOT NULL` | Google account email |
+| `googleId` | `varchar` | `UNIQUE, NOT NULL` | Google OAuth `sub` claim |
+| `name` | `varchar` | `NOT NULL` | Display name from Google profile |
+| `createdAt` | `timestamp` | `auto` | Account creation timestamp |
+| `updatedAt` | `timestamp` | `auto` | Last profile update |
+
+### `submissions`
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | `uuid` | `PK, auto-generated` | Unique submission identifier |
+| `userId` | `varchar` | `NOT NULL` | Submitting user reference |
+| `fileKey` | `varchar` | `NOT NULL` | MinIO S3 object key for uploaded CAD file |
+| `status` | `varchar` | `DEFAULT 'PENDING'` | One of: `PENDING`, `UPLOADED`, `PROCESSING`, `COMPLETED`, `FAILED` |
+| `score` | `float` | `NULLABLE` | Computed assessment score (0–100) |
+| `aiReportId` | `varchar` | `NULLABLE` | MinIO S3 key for Gemini-generated report |
+| `metrics` | `jsonb` | `NULLABLE` | `{ volume, surfaceArea, centerOfMass: [x,y,z] }` |
+| `createdAt` | `timestamp` | `auto` | Submission timestamp |
+| `updatedAt` | `timestamp` | `auto` | Last status change |
+
+### `outbox_events`
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | `uuid` | `PK, auto-generated` | Event identifier |
+| `aggregateType` | `varchar` | `NOT NULL` | Source entity type (e.g., `Submission`) |
+| `aggregateId` | `varchar` | `NOT NULL` | Source entity ID |
+| `eventType` | `varchar` | `NOT NULL` | Event name (e.g., `SubmissionUploaded`) |
+| `payload` | `jsonb` | `NOT NULL` | Full event payload |
+| `processed` | `boolean` | `DEFAULT false` | Relay completion flag |
+| `createdAt` | `timestamp` | `auto` | Event creation timestamp |
+
+```mermaid
+erDiagram
+    users {
+        uuid id PK
+        varchar email UK
+        varchar googleId UK
+        varchar name
+        timestamp createdAt
+        timestamp updatedAt
+    }
+
+    submissions {
+        uuid id PK
+        varchar userId FK
+        varchar fileKey
+        varchar status
+        float score
+        varchar aiReportId
+        jsonb metrics
+        timestamp createdAt
+        timestamp updatedAt
+    }
+
+    outbox_events {
+        uuid id PK
+        varchar aggregateType
+        varchar aggregateId
+        varchar eventType
+        jsonb payload
+        boolean processed
+        timestamp createdAt
+    }
+
+    users ||--o{ submissions : "has many"
+    submissions ||--o{ outbox_events : "emits"
+```
+
+---
+
+## 📡 API Specification
+
+> Interactive Swagger UI available at `http://localhost:3000/api` when the core-platform is running.
+
+### `POST /auth/google` — Stateless Google OAuth Login
+
+> **Auth:** None
+
+**Request:**
+```json
+{
+  "token": "eyJhbGciOiJSUzI1NiIs..."
+}
+```
+
+**Response `201`:**
+```json
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+**Response `401`:**
+```json
+{
+  "statusCode": 401,
+  "message": "Failed to verify Google token"
+}
+```
+
+---
+
+### `POST /storage/presigned-url` — Generate MinIO Upload URL
+
+> **Auth:** `Authorization: Bearer <JWT>`
+
+**Request:**
+```json
+{
+  "filename": "bracket-assembly.step",
+  "contentType": "application/step"
+}
+```
+
+**Response `201`:**
+```json
+{
+  "uploadUrl": "http://localhost:9000/leetcad-uploads/user-uuid/file-uuid-bracket-assembly.step?X-Amz-Algorithm=...",
+  "fileKey": "user-uuid/file-uuid-bracket-assembly.step"
+}
+```
+
+**Response `400`:**
+```json
+{
+  "statusCode": 400,
+  "message": "Validation failed"
+}
+```
+
+---
+
+### `POST /submissions/complete` — Mark Upload Complete & Trigger Assessment
+
+> **Auth:** `Authorization: Bearer <JWT>`
+
+**Request:**
+```json
+{
+  "fileKey": "user-uuid/file-uuid-bracket-assembly.step"
+}
+```
+
+**Response `201`:**
+```json
+{
+  "id": "submission-uuid",
+  "userId": "user-uuid",
+  "fileKey": "user-uuid/file-uuid-bracket-assembly.step",
+  "status": "UPLOADED",
+  "score": null,
+  "aiReportId": null,
+  "metrics": null,
+  "createdAt": "2026-07-28T10:30:00.000Z",
+  "updatedAt": "2026-07-28T10:30:00.000Z"
+}
+```
+
+---
+
+### `WS ws://localhost:3001` — Real-Time Assessment Notifications
+
+> **Auth:** `?userId=<user-uuid>` query parameter
+
+**Connection:**
+```javascript
+const socket = io("ws://localhost:3001", {
+  query: { userId: "user-uuid" }
+});
+```
+
+**Event: `assessment.completed`**
+```json
+{
+  "submissionId": "submission-uuid",
+  "userId": "user-uuid",
+  "status": "COMPLETED",
+  "score": 85.5,
+  "aiReportId": "reports/submission-uuid/ai-report.md",
+  "metrics": {
+    "volume": 1234.56,
+    "surfaceArea": 789.01,
+    "centerOfMass": [0.5, 1.2, 3.4]
+  },
+  "renderUrls": ["reports/submission-uuid/render.png"]
+}
+```
+
+---
+
+## 🛡 System Design & Mitigation Strategies
 
 ### 1. Transactional Outbox Pattern
 
@@ -217,58 +510,127 @@ Trace context (`traceparent` headers) propagates automatically across HTTP bound
 
 All application logs are emitted as flat JSON via Winston with `format.json()`. No colorization, no `simple()` format, no pretty-print. Every log line is a single JSON object with `timestamp`, `level`, `message`, `context`, `trace_id`, and `span_id` fields — directly ingestible by ELK, Datadog, or any log aggregator without parsing rules.
 
-## Infrastructure (Docker Compose)
+---
+
+## 📋 Prerequisites
+
+| Requirement | Version | Purpose |
+|---|---|---|
+| **Node.js** | v20+ | Runtime for all TypeScript services |
+| **Docker & Docker Compose** | Latest | PostgreSQL, Redis, RabbitMQ, MinIO containers |
+| **Python** | 3.10+ | CAD analysis worker (CadQuery, PyVista) |
+| **npm** | v10+ | Package management (Turborepo workspaces) |
+
+---
+
+## 🚀 Quick Start
+
+```bash
+# 1. Clone and install dependencies
+git clone https://github.com/AsyncNigam/LeetCAD-Backend.git
+cd LeetCAD-Backend
+npm install
+
+# 2. Configure environment
+cp .env.example .env
+# Edit .env with your GEMINI_API_KEY and GOOGLE_CLIENT_ID
+
+# 3. Start infrastructure
+docker compose up -d
+docker compose ps  # Verify all 4 services are healthy
+
+# 4. Create MinIO buckets
+docker exec leetcad-minio mc alias set local http://localhost:9000 leetcad leetcad_dev
+docker exec leetcad-minio mc mb local/leetcad-uploads local/leetcad --ignore-existing
+
+# 5. Build all packages
+npx turbo run build
+
+# 6. Start services (in separate terminals)
+node apps/core-platform/dist/main.js        # API on :3000, Swagger on :3000/api
+node apps/realtime-service/dist/index.js     # WebSocket on :3001
+```
+
+---
+
+## 🔑 Environment Variables
+
+> Copy `.env.example` to `.env` and configure:
+
+```bash
+# Server
+PORT=3000
+NODE_ENV=development
+
+# Authentication
+JWT_SECRET=your_jwt_secret
+GOOGLE_CLIENT_ID=your_google_oauth_client_id
+
+# PostgreSQL
+DATABASE_URL=postgresql://leetcad:leetcad_dev@localhost:5432/leetcad_db
+
+# Redis
+REDIS_URL=redis://localhost:6379
+
+# RabbitMQ
+RABBITMQ_URI=amqp://guest:guest@localhost:5672
+
+# MinIO (S3-compatible)
+MINIO_ENDPOINT=localhost
+MINIO_PORT=9000
+MINIO_ACCESS_KEY=leetcad
+MINIO_SECRET_KEY=leetcad_dev
+
+# Google Gemini AI
+GEMINI_API_KEY=your_gemini_api_key
+```
+
+---
+
+## 🧪 Testing
+
+```bash
+# Build all packages
+npx turbo run build
+
+# Lint all packages
+npx turbo run lint
+
+# Run unit tests (per service)
+npm run test --workspace=@leetcad/core-platform
+npm run test --workspace=@leetcad/assessment-engine
+npm run test --workspace=@leetcad/realtime-service
+
+# Type-check without emitting
+npx tsc --noEmit --project apps/core-platform/tsconfig.json
+npx tsc --noEmit --project apps/assessment-engine/tsconfig.json
+npx tsc --noEmit --project apps/realtime-service/tsconfig.json
+```
+
+---
+
+## 🐳 Infrastructure
 
 | Service | Image | Ports | Credentials |
 |---|---|---|---|
 | PostgreSQL | `postgres:16-alpine` | `5432` | `leetcad` / `leetcad_dev` |
 | Redis | `redis:7-alpine` | `6379` | — |
-| RabbitMQ | `rabbitmq:3-management-alpine` | `5672`, `15672` | `guest` / `guest` |
-| MinIO | `minio/minio` | `9000`, `9001` | `leetcad` / `leetcad_dev` |
+| RabbitMQ | `rabbitmq:3-management-alpine` | `5672` · `15672` | `guest` / `guest` |
+| MinIO | `minio/minio` | `9000` · `9001` | `leetcad` / `leetcad_dev` |
+
+**Management UIs:**
+- RabbitMQ Dashboard → `http://localhost:15672`
+- MinIO Console → `http://localhost:9001`
+- Swagger API Docs → `http://localhost:3000/api`
 
 ```bash
-docker compose up -d
-docker compose ps          # Verify all 4 services are healthy
+docker compose up -d       # Start all containers
+docker compose ps          # Health check
+docker compose down -v     # Tear down with volumes
 ```
 
-## Prerequisites
+---
 
-- **Node.js** v20+
-- **Docker & Docker Compose** (for PostgreSQL, Redis, RabbitMQ, MinIO)
-- **Python** 3.10+ (for the assessment-engine worker)
-
-## Quick Start
-
-```bash
-# Install dependencies
-npm install
-
-# Start infrastructure
-docker compose up -d
-
-# Create MinIO buckets
-docker exec leetcad-minio mc alias set local http://localhost:9000 leetcad leetcad_dev
-docker exec leetcad-minio mc mb local/leetcad-uploads local/leetcad --ignore-existing
-
-# Build all packages
-npx turbo run build
-
-# Start services
-node apps/core-platform/dist/main.js        # API on :3000, Swagger on :3000/api
-node apps/realtime-service/dist/index.js     # WebSocket on :3001
-```
-
-## API Reference
-
-Interactive Swagger UI available at `http://localhost:3000/api` when the core-platform is running.
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `POST` | `/auth/google` | None | Exchange Google ID token for JWT |
-| `POST` | `/storage/presigned-url` | Bearer JWT | Generate MinIO presigned upload URL |
-| `POST` | `/submissions/complete` | Bearer JWT | Mark upload complete, trigger assessment |
-| `WS` | `ws://localhost:3001?userId=<id>` | Query param | Real-time assessment notifications |
-
-## License
+## 📄 License
 
 This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
