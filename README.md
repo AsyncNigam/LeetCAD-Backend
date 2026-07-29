@@ -17,24 +17,6 @@
 
 ---
 
-## 📋 Table of Contents
-
-- [Tech Stack](#-tech-stack)
-- [Architecture](#-architecture)
-- [Execution Flow](#-execution-flow)
-- [Monorepo Structure](#-monorepo-structure)
-- [Database Schema](#-database-schema)
-- [API Specification](#-api-specification)
-- [System Design & Mitigation Strategies](#-system-design--mitigation-strategies)
-- [Prerequisites](#-prerequisites)
-- [Quick Start](#-quick-start)
-- [Environment Variables](#-environment-variables)
-- [Testing](#-testing)
-- [Infrastructure](#-infrastructure)
-- [License](#-license)
-
----
-
 ## 🛠 Tech Stack
 
 | Layer | Technologies |
