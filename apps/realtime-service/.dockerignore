@@ -1,0 +1,30 @@
+# ─────────────────────────────────────────────
+# Realtime Service — .dockerignore
+# ─────────────────────────────────────────────
+
+.git
+.gitignore
+
+dist
+node_modules
+
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+.DS_Store
+Thumbs.db
+
+.env
+.env.*
+!.env.example
+
+coverage
+*.test.ts
+*.spec.ts
+__tests__
+
+Dockerfile
+.dockerignore
