@@ -1,6 +1,6 @@
 import { Module } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
-import { ConfigModule } from "@nestjs/config";
+import { ConfigModule, ConfigService } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { ScheduleModule } from "@nestjs/schedule";
 import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
@@ -17,15 +17,22 @@ import { User } from "./entities/User.js";
     ConfigModule.forRoot({ isGlobal: true }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     ScheduleModule.forRoot(),
-    TypeOrmModule.forRoot({
-      type: "postgres",
-      host: "localhost",
-      port: 5432,
-      username: "leetcad",
-      password: "leetcad_dev",
-      database: "leetcad_db",
-      entities: [Submission, OutboxEvent, User],
-      synchronize: true,
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        type: "postgres" as const,
+        host: config.get<string>("DB_HOST", "localhost"),
+        port: config.get<number>("DB_PORT", 5432),
+        username: config.get<string>("DB_USER", "leetcad"),
+        password: config.get<string>("DB_PASSWORD", "leetcad_dev"),
+        database: config.get<string>("DB_NAME", "leetcad_db"),
+        ssl: config.get<string>("DB_SSL", "false") === "true"
+          ? { rejectUnauthorized: false }
+          : false,
+        entities: [Submission, OutboxEvent, User],
+        synchronize: true,
+      }),
     }),
     AuthModule,
     StorageModule,

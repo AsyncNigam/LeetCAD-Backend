@@ -15,23 +15,39 @@ import { SubmissionStatus } from "@leetcad/shared-types";
 import type { SubmissionCreatedPayload, AssessmentCompletedPayload } from "@leetcad/shared-types";
 
 const s3 = new S3Client({
-  endpoint: "http://localhost:9000",
-  region: "us-east-1",
+  endpoint: process.env.S3_ENDPOINT || "http://localhost:9000",
+  region: process.env.S3_REGION || "us-east-1",
   credentials: {
-    accessKeyId: "leetcad",
-    secretAccessKey: "leetcad_dev",
+    accessKeyId: process.env.S3_ACCESS_KEY || "leetcad",
+    secretAccessKey: process.env.S3_SECRET_KEY || "leetcad_dev",
   },
-  forcePathStyle: true,
+  forcePathStyle: (process.env.S3_FORCE_PATH_STYLE || "true") === "true",
 });
+
+const S3_BUCKET = process.env.S3_BUCKET || "leetcad";
 
 const genai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY || "local_mock_key",
 });
 
-const redis = new Redis("redis://localhost:6379");
+function buildRedisUrl(): string {
+  if (process.env.REDIS_URL) return process.env.REDIS_URL;
+  const host = process.env.REDIS_HOST || "localhost";
+  const port = process.env.REDIS_PORT || "6379";
+  const password = process.env.REDIS_PASSWORD;
+  return password
+    ? `redis://:${password}@${host}:${port}`
+    : `redis://${host}:${port}`;
+}
+
+const redis = new Redis(buildRedisUrl());
 
 const pool = new pg.Pool({
-  connectionString: "postgresql://leetcad:leetcad_dev@localhost:5432/leetcad_db",
+  host: process.env.DB_HOST || "localhost",
+  port: parseInt(process.env.DB_PORT || "5432", 10),
+  user: process.env.DB_USER || "leetcad",
+  password: process.env.DB_PASSWORD || "leetcad_dev",
+  database: process.env.DB_NAME || "leetcad_db",
 });
 
 async function cleanupFile(filePath: string): Promise<void> {
@@ -83,7 +99,7 @@ function runPython(inputPath: string, outputPath: string): Promise<{ stdout: str
 }
 
 async function main(): Promise<void> {
-  const connection = await amqplib.connect("amqp://guest:guest@localhost:5672");
+  const connection = await amqplib.connect(process.env.RABBITMQ_URL || "amqp://guest:guest@localhost:5672");
   const channel = await connection.createChannel();
 
   connection.on("error", (err) => {
@@ -235,7 +251,7 @@ async function main(): Promise<void> {
       const renderKey = `renders/${payload.submissionId}.png`;
 
       await s3.send(new PutObjectCommand({
-        Bucket: "leetcad",
+        Bucket: S3_BUCKET,
         Key: reportKey,
         Body: aiReport,
         ContentType: "text/markdown",

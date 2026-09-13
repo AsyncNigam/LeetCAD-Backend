@@ -5,6 +5,16 @@ import { createAdapter } from "@socket.io/redis-adapter";
 import amqplib from "amqplib";
 import type { AssessmentCompletedPayload } from "@leetcad/shared-types";
 
+function buildRedisUrl(): string {
+  if (process.env.REDIS_URL) return process.env.REDIS_URL;
+  const host = process.env.REDIS_HOST || "localhost";
+  const port = process.env.REDIS_PORT || "6379";
+  const password = process.env.REDIS_PASSWORD;
+  return password
+    ? `redis://:${password}@${host}:${port}`
+    : `redis://${host}:${port}`;
+}
+
 const httpServer = createServer();
 
 const io = new Server(httpServer, {
@@ -14,7 +24,7 @@ const io = new Server(httpServer, {
   },
 });
 
-const pubClient = new Redis("redis://localhost:6379");
+const pubClient = new Redis(buildRedisUrl());
 const subClient = pubClient.duplicate();
 
 io.adapter(createAdapter(pubClient, subClient));
@@ -33,7 +43,7 @@ io.on("connection", (socket) => {
 });
 
 async function startConsumer(): Promise<{ connection: amqplib.ChannelModel; channel: amqplib.Channel }> {
-  const connection = await amqplib.connect("amqp://guest:guest@localhost:5672");
+  const connection = await amqplib.connect(process.env.RABBITMQ_URL || "amqp://guest:guest@localhost:5672");
   const channel = await connection.createChannel();
 
   connection.on("error", (err) => {
@@ -91,7 +101,7 @@ async function startConsumerWithRetry(): Promise<void> {
   }
 }
 
-const PORT = 3001;
+const PORT = parseInt(process.env.REALTIME_PORT || process.env.PORT || "3001", 10);
 
 let rmqConnection: amqplib.ChannelModel | null = null;
 let rmqChannel: amqplib.Channel | null = null;
