@@ -9,7 +9,10 @@
     "build": "turbo run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
-    "clean": "turbo run clean"
+    "clean": "turbo run clean",
+    "compose:up": "docker compose up -d --build",
+    "compose:down": "docker compose down -v",
+    "test:smoke": "bash scripts/smoke-test.sh"
   },
   "devDependencies": {
     "turbo": "^2.5.0",
