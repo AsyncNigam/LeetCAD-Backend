@@ -68,8 +68,44 @@ services:
       timeout: 10s
       retries: 5
 
+  # ── Application Services ─────────────────────────
+
+  assessment-engine:
+    build:
+      context: .
+      dockerfile: apps/assessment-engine/Dockerfile
+    container_name: leetcad-assessment-engine
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      # Override hostnames to use Docker service names
+      DB_HOST: postgres
+      REDIS_HOST: redis
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      S3_ENDPOINT: http://minio:9000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    tmpfs:
+      - /tmp/leetcad-workdir:size=512M
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+
 volumes:
   postgres_data:
   redis_data:
   rabbitmq_data:
   minio_data:
+

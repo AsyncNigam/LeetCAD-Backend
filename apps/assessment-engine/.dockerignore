@@ -1,0 +1,45 @@
+# ─────────────────────────────────────────────
+# Assessment Engine — .dockerignore
+# ─────────────────────────────────────────────
+
+# Version control
+.git
+.gitignore
+
+# Build artifacts (rebuilt in container)
+dist
+node_modules
+
+# IDE / editor
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Temporary CAD/render files
+*.step
+*.stp
+*.stl
+*.png
+*.jpg
+*.jpeg
+
+# Environment files (secrets should be injected at runtime)
+.env
+.env.*
+!.env.example
+
+# Test / CI
+coverage
+*.test.ts
+*.spec.ts
+__tests__
+
+# Docker (avoid recursive copy)
+Dockerfile
+.dockerignore
