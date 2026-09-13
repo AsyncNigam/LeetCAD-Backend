@@ -42,7 +42,7 @@ export class AuthService {
     }
   }
 
-  async googleLogin(token: string): Promise<{ accessToken: string }> {
+  async googleLogin(token: string): Promise<{ accessToken: string; user: { id: string; email: string; name: string } }> {
     const { email, googleId, name } = await this.verifyGoogleToken(token);
 
     let user = await this.userRepository.findOne({ where: { googleId } });
@@ -58,6 +58,23 @@ export class AuthService {
 
     const accessToken = this.jwtService.sign({ userId: user.id });
 
-    return { accessToken };
+    return { accessToken, user: { id: user.id, email: user.email, name: user.name } };
+  }
+
+  async devLogin(): Promise<{ accessToken: string; user: { id: string; email: string; name: string } }> {
+    const devGoogleId = "dev-reviewer-id";
+    const devEmail = "reviewer@leetcad.internal";
+    const devName = "Cad Reviewer";
+
+    let user = await this.userRepository.findOne({ where: { googleId: devGoogleId } });
+
+    if (!user) {
+      user = this.userRepository.create({ email: devEmail, googleId: devGoogleId, name: devName });
+      user = await this.userRepository.save(user);
+    }
+
+    const accessToken = this.jwtService.sign({ userId: user.id });
+
+    return { accessToken, user: { id: user.id, email: user.email, name: user.name } };
   }
 }

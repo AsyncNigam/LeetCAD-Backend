@@ -6,8 +6,11 @@ import {
   Cpu,
   FileUp,
   Layers,
+  LogOut,
   Zap,
 } from "lucide-react";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import { AuthCard } from "./components/AuthCard";
 
 function StatusIndicator({ connected }: { connected: boolean }) {
   return (
@@ -22,6 +25,44 @@ function StatusIndicator({ connected }: { connected: boolean }) {
       <span className="text-surface-200">
         {connected ? "Connected" : "Disconnected"}
       </span>
+    </div>
+  );
+}
+
+function UserMenu() {
+  const { user, logout } = useAuth();
+  if (!user) return null;
+
+  const initials = user.name
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2.5">
+        <div className="h-8 w-8 rounded-full bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center text-xs font-bold text-white shadow-md shadow-brand-600/20">
+          {initials}
+        </div>
+        <div className="hidden sm:block text-left">
+          <div className="text-sm font-medium text-white leading-tight">
+            {user.name}
+          </div>
+          <div className="text-xs text-surface-200 leading-tight">
+            {user.email}
+          </div>
+        </div>
+      </div>
+      <button
+        id="logout-btn"
+        onClick={logout}
+        className="btn-ghost !px-2 !py-1.5 text-surface-200 hover:text-red-400"
+        title="Sign out"
+      >
+        <LogOut className="h-4 w-4" />
+      </button>
     </div>
   );
 }
@@ -53,7 +94,8 @@ function FeatureCard({
   );
 }
 
-export function App() {
+function AppContent() {
+  const { isAuthenticated } = useAuth();
   const [connected] = useState(false);
 
   return (
@@ -72,23 +114,26 @@ export function App() {
             </div>
           </div>
 
-          <nav className="hidden md:flex items-center gap-1">
-            <button className="btn-ghost text-sm">
-              <Layers className="h-4 w-4" />
-              Dashboard
-            </button>
-            <button className="btn-ghost text-sm">
-              <FileUp className="h-4 w-4" />
-              Submissions
-            </button>
-            <button className="btn-ghost text-sm">
-              <Activity className="h-4 w-4" />
-              Leaderboard
-            </button>
-          </nav>
+          {isAuthenticated && (
+            <nav className="hidden md:flex items-center gap-1">
+              <button className="btn-ghost text-sm">
+                <Layers className="h-4 w-4" />
+                Dashboard
+              </button>
+              <button className="btn-ghost text-sm">
+                <FileUp className="h-4 w-4" />
+                Submissions
+              </button>
+              <button className="btn-ghost text-sm">
+                <Activity className="h-4 w-4" />
+                Leaderboard
+              </button>
+            </nav>
+          )}
 
           <div className="flex items-center gap-4">
             <StatusIndicator connected={connected} />
+            {isAuthenticated && <UserMenu />}
           </div>
         </div>
       </header>
@@ -118,24 +163,28 @@ export function App() {
             </p>
           </div>
 
-          {/* Feature Cards */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 max-w-4xl mx-auto">
-            <FeatureCard
-              icon={FileUp}
-              title="STEP File Upload"
-              description="Drag-and-drop STEP file ingestion with automatic geometry extraction and validation."
-            />
-            <FeatureCard
-              icon={Cpu}
-              title="AI Assessment"
-              description="Gemini Vision evaluates geometry, symmetry, wall thickness, and manufacturability."
-            />
-            <FeatureCard
-              icon={Activity}
-              title="Real-time Results"
-              description="WebSocket-powered live updates push scores and reports as soon as analysis completes."
-            />
-          </div>
+          {/* Auth Gate or Feature Cards */}
+          {!isAuthenticated ? (
+            <AuthCard />
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 max-w-4xl mx-auto">
+              <FeatureCard
+                icon={FileUp}
+                title="STEP File Upload"
+                description="Drag-and-drop STEP file ingestion with automatic geometry extraction and validation."
+              />
+              <FeatureCard
+                icon={Cpu}
+                title="AI Assessment"
+                description="Gemini Vision evaluates geometry, symmetry, wall thickness, and manufacturability."
+              />
+              <FeatureCard
+                icon={Activity}
+                title="Real-time Results"
+                description="WebSocket-powered live updates push scores and reports as soon as analysis completes."
+              />
+            </div>
+          )}
         </div>
       </main>
 
@@ -147,5 +196,13 @@ export function App() {
         </div>
       </footer>
     </div>
+  );
+}
+
+export function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
