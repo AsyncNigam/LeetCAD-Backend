@@ -3,7 +3,14 @@ import { Server } from "socket.io";
 import Redis from "ioredis";
 import { createAdapter } from "@socket.io/redis-adapter";
 import amqplib from "amqplib";
+import jwt from "jsonwebtoken";
 import type { AssessmentCompletedPayload } from "@leetcad/shared-types";
+
+interface JwtPayload {
+  userId: string;
+}
+
+const JWT_SECRET = process.env.JWT_SECRET || "dev_fallback_secret";
 
 function buildRedisUrl(): string {
   if (process.env.REDIS_URL) return process.env.REDIS_URL;
@@ -29,16 +36,43 @@ const subClient = pubClient.duplicate();
 
 io.adapter(createAdapter(pubClient, subClient));
 
-io.on("connection", (socket) => {
-  const userId = socket.handshake.query.userId as string | undefined;
+// ── JWT Authentication Middleware ────────────────────────────
+io.use((socket, next) => {
+  const token =
+    socket.handshake.auth?.token ||
+    socket.handshake.headers.authorization?.replace(/^Bearer\s+/i, "");
 
-  if (userId) {
-    socket.join(`user:${userId}`);
-    console.log(`[realtime-service] User ${userId} connected (socket ${socket.id})`);
+  if (!token) {
+    return next(new Error("Authentication error: Missing token"));
   }
 
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
+
+    if (!decoded.userId) {
+      return next(new Error("Authentication error: Invalid token payload"));
+    }
+
+    socket.data.userId = decoded.userId;
+    socket.data.user = decoded;
+    next();
+  } catch (err) {
+    const message = err instanceof jwt.TokenExpiredError
+      ? "Authentication error: Token expired"
+      : "Authentication error: Invalid or expired token";
+    return next(new Error(message));
+  }
+});
+
+// ── Connection Handler ──────────────────────────────────────
+io.on("connection", (socket) => {
+  const userId: string = socket.data.userId;
+
+  socket.join(`user:${userId}`);
+  console.log(`[realtime-service] Authenticated user ${userId} connected (socket ${socket.id})`);
+
   socket.on("disconnect", () => {
-    console.log(`[realtime-service] Socket ${socket.id} disconnected (user: ${userId ?? "unknown"})`);
+    console.log(`[realtime-service] Socket ${socket.id} disconnected (user: ${userId})`);
   });
 });
 
