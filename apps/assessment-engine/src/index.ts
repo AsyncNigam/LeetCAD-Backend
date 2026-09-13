@@ -203,7 +203,17 @@ async function main(): Promise<void> {
         ContentType: "image/png",
       }));
 
-      const fence = await redis.incr(`submission:${payload.submissionId}:fence`);
+      let fence: number;
+      try {
+        fence = await redis.incr(`submission:${payload.submissionId}:fence`);
+        if (fence === 1) {
+          await redis.expire(`submission:${payload.submissionId}:fence`, 86_400);
+        }
+      } catch (redisErr) {
+        console.error(`[assessment-engine] Redis fence check failed for submissionId=${payload.submissionId}:`, redisErr);
+        channel.nack(msg, false, true);
+        return;
+      }
 
       if (fence > 1) {
         console.warn(`[assessment-engine] Zombie worker or duplicate delivery detected. Dropping write. submissionId=${payload.submissionId} fence=${fence}`);
@@ -213,8 +223,8 @@ async function main(): Promise<void> {
 
       const score = 85.5;
 
-      await pool.query(
-        `UPDATE submissions SET status = $1, score = $2, "aiReportId" = $3, metrics = $4 WHERE id = $5`,
+      const updateResult = await pool.query(
+        `UPDATE submissions SET status = $1, score = $2, "aiReportId" = $3, metrics = $4 WHERE id = $5 AND status != 'COMPLETED'`,
         [
           SubmissionStatus.COMPLETED,
           score,
@@ -223,6 +233,12 @@ async function main(): Promise<void> {
           payload.submissionId,
         ],
       );
+
+      if (updateResult.rowCount === 0) {
+        console.warn(`[assessment-engine] Submission ${payload.submissionId} already resolved or not found. Dropping redundant write.`);
+        channel.ack(msg);
+        return;
+      }
 
       const completedPayload: AssessmentCompletedPayload = {
         submissionId: payload.submissionId,

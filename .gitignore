@@ -2,3 +2,5 @@ node_modules
 dist
 .turbo
 *.tsbuildinfo
+PROJECT_ARCHITECTURE_AND_INTERVIEW_PREP.md
+.gitignore
