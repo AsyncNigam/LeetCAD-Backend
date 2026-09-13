@@ -6,7 +6,7 @@ import { spawn } from "node:child_process";
 import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
 import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import amqplib from "amqplib";
 import Redis from "ioredis";
 import pg from "pg";
@@ -167,24 +167,69 @@ async function main(): Promise<void> {
               },
               {
                 text: [
-                  "You are a senior mechanical engineer performing a qualitative design review of a CAD model.",
+                  "You are a senior mechanical engineer performing a quantitative and qualitative design review of a CAD model.",
                   "The following physical metrics were extracted from the model:",
                   `- Volume: ${metrics.volume} cubic units`,
                   `- Surface Area: ${metrics.surfaceArea} square units`,
+                  `- Bounding Box: [${metrics.boundingBox?.join(", ") ?? "N/A"}]`,
                   `- Center of Mass: [${metrics.centerOfMass.join(", ")}]`,
                   "",
-                  "Based on the rendered image and these metrics, provide a detailed engineering review.",
-                  "Assess structural integrity, material efficiency (surface-to-volume ratio),",
-                  "symmetry, center of mass positioning, and any potential manufacturing concerns.",
-                  "Format your response as a structured Markdown report.",
+                  "Based on the rendered image and these metrics, perform a rigorous engineering assessment.",
+                  "Calculate a numerical quality score from 0 to 100 by evaluating the following criteria:",
+                  "  - Geometry validity and watertightness (0–25 points)",
+                  "  - Material efficiency / surface-to-volume ratio (0–25 points)",
+                  "  - Symmetry and center of mass positioning (0–25 points)",
+                  "  - Manufacturability and wall thickness adequacy (0–25 points)",
+                  "",
+                  "Return the total score as an integer in the 'score' field.",
+                  "Provide a detailed engineering review as a structured Markdown report in the 'report' field.",
                 ].join("\n"),
               },
             ],
           },
         ],
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              score: {
+                type: Type.NUMBER,
+                description: "CAD quality score from 0 to 100",
+                minimum: 0,
+                maximum: 100,
+              },
+              report: {
+                type: Type.STRING,
+                description: "Detailed Markdown engineering review report",
+              },
+            },
+            required: ["score", "report"],
+          },
+        },
       });
 
-      const aiReport = geminiResponse.text ?? "No report generated.";
+      let score: number;
+      let aiReport: string;
+
+      try {
+        const parsed = JSON.parse(geminiResponse.text ?? "");
+        score = Math.max(0, Math.min(100, Number(parsed.score)));
+        if (Number.isNaN(score)) {
+          throw new Error("Parsed score is NaN");
+        }
+        aiReport = typeof parsed.report === "string" && parsed.report.length > 0
+          ? parsed.report
+          : "No report generated.";
+      } catch (parseErr) {
+        console.warn(
+          `[assessment-engine] Failed to parse structured Gemini response for submissionId=${payload.submissionId}. Using deterministic fallback.`,
+          parseErr,
+        );
+        const svRatio = metrics.surfaceArea > 0 ? metrics.volume / metrics.surfaceArea : 0;
+        score = Math.max(0, Math.min(100, Math.round(svRatio * 100)));
+        aiReport = "Assessment report could not be generated. Fallback score computed from surface-to-volume ratio.";
+      }
 
       const reportKey = `reports/${payload.submissionId}.md`;
       const renderKey = `renders/${payload.submissionId}.png`;
@@ -221,7 +266,6 @@ async function main(): Promise<void> {
         return;
       }
 
-      const score = 85.5;
 
       const updateResult = await pool.query(
         `UPDATE submissions SET status = $1, score = $2, "aiReportId" = $3, metrics = $4 WHERE id = $5 AND status != 'COMPLETED'`,
