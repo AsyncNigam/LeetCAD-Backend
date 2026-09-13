@@ -12,6 +12,9 @@ import {
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { AuthCard } from "./components/AuthCard";
 import { CadUploader } from "./components/CadUploader";
+import { AssessmentDashboard } from "./components/AssessmentDashboard";
+import { Leaderboard } from "./components/Leaderboard";
+import { useRealtimeAssessment } from "./hooks/useRealtimeAssessment";
 
 function StatusIndicator({ connected }: { connected: boolean }) {
   return (
@@ -96,9 +99,17 @@ function FeatureCard({
 }
 
 function AppContent() {
-  const { isAuthenticated } = useAuth();
-  const [connected] = useState(false);
+  const { isAuthenticated, token } = useAuth();
   const [activeSubmissionId, setActiveSubmissionId] = useState<string | null>(null);
+
+  const {
+    connectionStatus,
+    phase,
+    assessment,
+    leaderboard,
+  } = useRealtimeAssessment(token, activeSubmissionId);
+
+  const isConnected = connectionStatus === "connected";
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -134,7 +145,7 @@ function AppContent() {
           )}
 
           <div className="flex items-center gap-4">
-            <StatusIndicator connected={connected} />
+            <StatusIndicator connected={isConnected} />
             {isAuthenticated && <UserMenu />}
           </div>
         </div>
@@ -173,37 +184,36 @@ function AppContent() {
               {/* CAD Uploader */}
               <CadUploader onSubmissionCreated={setActiveSubmissionId} />
 
-              {/* Active submission indicator */}
-              {activeSubmissionId && (
-                <div className="flex items-center justify-center gap-2 text-sm text-surface-200 animate-fade-in">
-                  <div className="h-2 w-2 rounded-full bg-amber-400 animate-pulse-slow" />
-                  <span>
-                    Tracking submission{" "}
-                    <span className="font-mono text-xs text-brand-400">
-                      {activeSubmissionId.slice(0, 8)}…
-                    </span>
-                  </span>
-                </div>
-              )}
+              {/* Real-time Assessment Dashboard */}
+              <AssessmentDashboard
+                phase={phase}
+                assessment={assessment}
+                submissionId={activeSubmissionId}
+              />
+
+              {/* Global Leaderboard */}
+              <Leaderboard entries={leaderboard} />
 
               {/* Condensed feature row */}
-              <div className="grid gap-4 sm:grid-cols-3 max-w-4xl mx-auto">
-                <FeatureCard
-                  icon={FileUp}
-                  title="STEP File Upload"
-                  description="Drag-and-drop STEP file ingestion with automatic geometry extraction."
-                />
-                <FeatureCard
-                  icon={Cpu}
-                  title="AI Assessment"
-                  description="Gemini Vision evaluates geometry, symmetry, and manufacturability."
-                />
-                <FeatureCard
-                  icon={Activity}
-                  title="Real-time Results"
-                  description="WebSocket-powered live updates push scores and reports instantly."
-                />
-              </div>
+              {!activeSubmissionId && (
+                <div className="grid gap-4 sm:grid-cols-3 max-w-4xl mx-auto">
+                  <FeatureCard
+                    icon={FileUp}
+                    title="STEP File Upload"
+                    description="Drag-and-drop STEP file ingestion with automatic geometry extraction."
+                  />
+                  <FeatureCard
+                    icon={Cpu}
+                    title="AI Assessment"
+                    description="Gemini Vision evaluates geometry, symmetry, and manufacturability."
+                  />
+                  <FeatureCard
+                    icon={Activity}
+                    title="Real-time Results"
+                    description="WebSocket-powered live updates push scores and reports instantly."
+                  />
+                </div>
+              )}
             </div>
           )}
         </div>
