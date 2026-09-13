@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { AuthCard } from "./components/AuthCard";
+import { CadUploader } from "./components/CadUploader";
 
 function StatusIndicator({ connected }: { connected: boolean }) {
   return (
@@ -97,6 +98,7 @@ function FeatureCard({
 function AppContent() {
   const { isAuthenticated } = useAuth();
   const [connected] = useState(false);
+  const [activeSubmissionId, setActiveSubmissionId] = useState<string | null>(null);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -163,26 +165,45 @@ function AppContent() {
             </p>
           </div>
 
-          {/* Auth Gate or Feature Cards */}
+          {/* Auth Gate or Dashboard */}
           {!isAuthenticated ? (
             <AuthCard />
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 max-w-4xl mx-auto">
-              <FeatureCard
-                icon={FileUp}
-                title="STEP File Upload"
-                description="Drag-and-drop STEP file ingestion with automatic geometry extraction and validation."
-              />
-              <FeatureCard
-                icon={Cpu}
-                title="AI Assessment"
-                description="Gemini Vision evaluates geometry, symmetry, wall thickness, and manufacturability."
-              />
-              <FeatureCard
-                icon={Activity}
-                title="Real-time Results"
-                description="WebSocket-powered live updates push scores and reports as soon as analysis completes."
-              />
+            <div className="space-y-10">
+              {/* CAD Uploader */}
+              <CadUploader onSubmissionCreated={setActiveSubmissionId} />
+
+              {/* Active submission indicator */}
+              {activeSubmissionId && (
+                <div className="flex items-center justify-center gap-2 text-sm text-surface-200 animate-fade-in">
+                  <div className="h-2 w-2 rounded-full bg-amber-400 animate-pulse-slow" />
+                  <span>
+                    Tracking submission{" "}
+                    <span className="font-mono text-xs text-brand-400">
+                      {activeSubmissionId.slice(0, 8)}…
+                    </span>
+                  </span>
+                </div>
+              )}
+
+              {/* Condensed feature row */}
+              <div className="grid gap-4 sm:grid-cols-3 max-w-4xl mx-auto">
+                <FeatureCard
+                  icon={FileUp}
+                  title="STEP File Upload"
+                  description="Drag-and-drop STEP file ingestion with automatic geometry extraction."
+                />
+                <FeatureCard
+                  icon={Cpu}
+                  title="AI Assessment"
+                  description="Gemini Vision evaluates geometry, symmetry, and manufacturability."
+                />
+                <FeatureCard
+                  icon={Activity}
+                  title="Real-time Results"
+                  description="WebSocket-powered live updates push scores and reports instantly."
+                />
+              </div>
             </div>
           )}
         </div>
