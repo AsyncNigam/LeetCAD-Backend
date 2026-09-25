@@ -4,7 +4,7 @@ import {
   Box,
   CheckCircle2,
   Cpu,
-  FileCode,
+  FileImage,
   Loader2,
   Maximize2,
   Ruler,
@@ -25,27 +25,49 @@ function s3Url(key: string): string {
   return `${S3_ENDPOINT}/${S3_BUCKET}/${key}`;
 }
 
+// ── Status Badge ────────────────────────────────────────────
+
+function StatusBadge({ phase }: { phase: SubmissionPhase }) {
+  switch (phase) {
+    case "UPLOADED":
+      return <span className="pill-muted">UPLOADED</span>;
+    case "PROCESSING":
+    case "EVALUATING":
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border border-brand-forest text-brand-forest">
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-brand-forest animate-pulse-slow" />
+          {phase}
+        </span>
+      );
+    case "COMPLETED":
+      return <span className="pill-mint">COMPLETED</span>;
+    case "FAILED":
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-50 text-red-800 border border-red-200">
+          FAILED
+        </span>
+      );
+    default:
+      return <span className="pill-muted">{phase}</span>;
+  }
+}
+
 // ── Score Gauge ─────────────────────────────────────────────
 
 function ScoreGauge({ score }: { score: number }) {
-  const color =
-    score >= 80
-      ? "text-emerald-400 border-emerald-500/30 bg-emerald-500/10"
-      : score >= 60
-        ? "text-amber-400 border-amber-500/30 bg-amber-500/10"
-        : "text-red-400 border-red-500/30 bg-red-500/10";
+  const tier =
+    score >= 80 ? "high" : score >= 60 ? "mid" : "low";
 
-  const glowColor =
-    score >= 80
-      ? "shadow-emerald-500/20"
-      : score >= 60
-        ? "shadow-amber-500/20"
-        : "shadow-red-500/20";
+  const colors = {
+    high: "text-brand-mint-dark border-brand-mint-dark/20 bg-brand-mint",
+    mid: "text-amber-700 border-amber-200 bg-amber-50",
+    low: "text-red-700 border-red-200 bg-red-50",
+  };
 
   return (
-    <div className={`inline-flex flex-col items-center gap-2 p-6 rounded-2xl border ${color} shadow-lg ${glowColor}`}>
-      <span className="text-5xl font-bold tabular-nums">{Math.round(score)}</span>
-      <span className="text-xs font-medium uppercase tracking-wider opacity-80">
+    <div className={`inline-flex flex-col items-center gap-1.5 p-6 rounded-xl border ${colors[tier]}`}>
+      <span className="text-5xl font-bold tabular-nums font-mono">{Math.round(score)}</span>
+      <span className="text-[10px] font-mono uppercase tracking-widest opacity-70">
         Quality Score
       </span>
     </div>
@@ -68,7 +90,7 @@ function PipelineStepper({ phase }: { phase: SubmissionPhase }) {
   const isFailed = phase === "FAILED";
 
   return (
-    <div className="glass p-5">
+    <div className="bg-surface-subtle rounded-xl p-4 border border-border">
       <div className="flex items-center justify-between gap-2">
         {PIPELINE_STEPS.map((step, i) => {
           const Icon = step.icon;
@@ -79,12 +101,12 @@ function PipelineStepper({ phase }: { phase: SubmissionPhase }) {
           return (
             <div key={step.key} className="flex items-center gap-2 flex-1">
               <div
-                className={`flex items-center justify-center h-9 w-9 rounded-lg shrink-0 transition-all duration-300 ${
+                className={`flex items-center justify-center h-8 w-8 rounded-lg shrink-0 transition-all duration-300 ${
                   isDone
-                    ? "bg-emerald-500/20 text-emerald-400"
+                    ? "bg-brand-mint text-brand-mint-dark"
                     : isCurrent
-                      ? "bg-brand-600/20 text-brand-400"
-                      : "bg-surface-700/40 text-surface-700"
+                      ? "bg-brand-forest/10 text-brand-forest"
+                      : "bg-canvas text-text-faint border border-border"
                 }`}
               >
                 {isCurrent ? (
@@ -98,10 +120,10 @@ function PipelineStepper({ phase }: { phase: SubmissionPhase }) {
               <span
                 className={`text-xs font-medium hidden sm:block ${
                   isDone
-                    ? "text-emerald-400"
+                    ? "text-brand-mint-dark"
                     : isCurrent
-                      ? "text-white"
-                      : "text-surface-700"
+                      ? "text-text-primary"
+                      : "text-text-faint"
                 }`}
               >
                 {step.label}
@@ -109,7 +131,7 @@ function PipelineStepper({ phase }: { phase: SubmissionPhase }) {
               {i < PIPELINE_STEPS.length - 1 && (
                 <div
                   className={`flex-1 h-px mx-2 ${
-                    isDone ? "bg-emerald-500/40" : "bg-surface-700/50"
+                    isDone ? "bg-brand-mint-dark/30" : "bg-border"
                   }`}
                 />
               )}
@@ -119,9 +141,9 @@ function PipelineStepper({ phase }: { phase: SubmissionPhase }) {
       </div>
 
       {isFailed && (
-        <div className="mt-4 flex items-center gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/25">
-          <AlertCircle className="h-4 w-4 text-red-400 shrink-0" />
-          <span className="text-sm text-red-400">Assessment failed. Please try re-uploading the file.</span>
+        <div className="mt-4 flex items-center gap-2 p-3 rounded-md bg-red-50 border border-red-200">
+          <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
+          <span className="text-sm text-red-800">Assessment failed. Please try re-uploading the file.</span>
         </div>
       )}
     </div>
@@ -142,14 +164,14 @@ function MetricCard({
   unit?: string;
 }) {
   return (
-    <div className="glass p-4 animate-fade-in">
+    <div className="bg-canvas rounded-lg p-4 border border-border animate-fade-in">
       <div className="flex items-center gap-2 mb-2">
-        <Icon className="h-4 w-4 text-brand-400" />
-        <span className="text-xs font-medium text-surface-200 uppercase tracking-wider">{label}</span>
+        <Icon className="h-3.5 w-3.5 text-text-muted" />
+        <span className="text-xs uppercase tracking-wider text-text-muted">{label}</span>
       </div>
-      <div className="flex items-baseline gap-1">
-        <span className="text-xl font-bold text-white font-mono">{value}</span>
-        {unit && <span className="text-xs text-surface-200">{unit}</span>}
+      <div className="flex items-baseline gap-1.5">
+        <span className="metric-value text-lg">{value}</span>
+        {unit && <span className="text-xs text-text-muted">{unit}</span>}
       </div>
     </div>
   );
@@ -163,17 +185,17 @@ function RenderCard({ renderUrls }: { renderUrls: string[] }) {
   const url = renderUrls[0] ? s3Url(renderUrls[0]) : null;
 
   return (
-    <div className="glass overflow-hidden">
-      <div className="px-4 py-3 border-b border-surface-700/50 flex items-center gap-2">
-        <FileCode className="h-4 w-4 text-brand-400" />
-        <span className="text-sm font-medium text-white">3D Model Render</span>
+    <div className="panel overflow-hidden">
+      <div className="px-4 py-3 bg-surface-subtle border-b border-border flex items-center gap-2">
+        <FileImage className="h-4 w-4 text-text-muted" />
+        <span className="text-sm font-semibold text-text-primary">3D Model Render</span>
       </div>
-      <div className="relative aspect-video bg-surface-900 flex items-center justify-center">
+      <div className="cad-viewport relative aspect-video rounded-none flex items-center justify-center">
         {url && !error ? (
           <>
             {!loaded && (
               <div className="absolute inset-0 flex items-center justify-center">
-                <Loader2 className="h-8 w-8 text-surface-700 animate-spin" />
+                <Loader2 className="h-8 w-8 text-text-faint/40 animate-spin" />
               </div>
             )}
             <img
@@ -187,9 +209,9 @@ function RenderCard({ renderUrls }: { renderUrls: string[] }) {
             />
           </>
         ) : (
-          <div className="flex flex-col items-center gap-2 text-surface-700">
-            <Box className="h-12 w-12" />
-            <span className="text-xs">Render not available</span>
+          <div className="flex flex-col items-center gap-2 text-text-faint/50">
+            <FileImage className="h-12 w-12" />
+            <span className="text-xs font-mono">Render not available</span>
           </div>
         )}
       </div>
@@ -214,29 +236,31 @@ function EngineeringReport({ reportKey }: { reportKey: string }) {
   });
 
   return (
-    <div className="glass overflow-hidden">
-      <div className="px-4 py-3 border-b border-surface-700/50 flex items-center gap-2">
-        <Target className="h-4 w-4 text-brand-400" />
-        <span className="text-sm font-medium text-white">Engineering Review</span>
+    <div className="panel overflow-hidden">
+      <div className="px-4 py-3 bg-surface-subtle border-b border-border flex items-center gap-2">
+        <Target className="h-4 w-4 text-text-muted" />
+        <span className="text-sm font-semibold text-text-primary">Engineering Review</span>
       </div>
       <div className="p-5 max-h-[500px] overflow-y-auto">
         {loading ? (
-          <div className="flex items-center gap-2 text-surface-200">
+          <div className="flex items-center gap-2 text-text-muted">
             <Loader2 className="h-4 w-4 animate-spin" />
             <span className="text-sm">Loading report…</span>
           </div>
         ) : (
-          <div className="prose prose-invert prose-sm max-w-none
-            prose-headings:text-white prose-headings:font-semibold
-            prose-p:text-surface-200 prose-p:leading-relaxed
-            prose-strong:text-white
-            prose-code:text-brand-400 prose-code:bg-surface-700/50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded
-            prose-li:text-surface-200
-            prose-hr:border-surface-700/50
-            prose-a:text-brand-400 prose-a:no-underline hover:prose-a:underline
-            prose-table:border-surface-700 prose-th:text-surface-100 prose-td:text-surface-200"
-          >
-            <Markdown remarkPlugins={[remarkGfm]}>{content ?? ""}</Markdown>
+          <div className="panel-subtle border-dashed p-5">
+            <div className="prose prose-sm max-w-none
+              prose-headings:text-brand-forest prose-headings:font-semibold
+              prose-p:text-text-primary prose-p:leading-relaxed
+              prose-strong:text-text-primary
+              prose-code:text-brand-forest prose-code:bg-surface-subtle prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs
+              prose-li:text-text-primary prose-li:marker:text-text-faint
+              prose-hr:border-border
+              prose-a:text-brand-forest prose-a:no-underline hover:prose-a:underline
+              prose-table:border-border prose-th:text-text-primary prose-td:text-text-primary"
+            >
+              <Markdown remarkPlugins={[remarkGfm]}>{content ?? ""}</Markdown>
+            </div>
           </div>
         )}
       </div>
@@ -258,15 +282,26 @@ export function AssessmentDashboard({ phase, assessment, submissionId }: Assessm
   const isComplete = phase === "COMPLETED" && assessment;
 
   return (
-    <div className="space-y-6 animate-slide-up">
-      {/* Pipeline stepper */}
-      <PipelineStepper phase={phase} />
+    <div className="panel divide-y divide-border animate-slide-up">
+      {/* ── Header ────────────────────────────────── */}
+      <div className="bg-surface-subtle px-5 py-4 flex items-center justify-between rounded-t-xl">
+        <div>
+          <h3 className="text-xl font-bold text-brand-forest">Assessment Pipeline</h3>
+          <span className="font-mono text-xs text-text-faint">{submissionId}</span>
+        </div>
+        <StatusBadge phase={phase} />
+      </div>
 
-      {/* In-progress message */}
+      {/* ── Stepper ───────────────────────────────── */}
+      <div className="p-5">
+        <PipelineStepper phase={phase} />
+      </div>
+
+      {/* ── In-progress message ───────────────────── */}
       {!isComplete && phase !== "FAILED" && (
-        <div className="flex items-center justify-center gap-3 py-8">
-          <Loader2 className="h-5 w-5 text-brand-400 animate-spin" />
-          <span className="text-surface-200">
+        <div className="flex items-center justify-center gap-3 px-5 py-10">
+          <Loader2 className="h-5 w-5 text-brand-forest animate-spin" />
+          <span className="text-text-muted text-sm">
             {phase === "UPLOADED" && "Submission received. Queued for processing…"}
             {phase === "PROCESSING" && "Running CadQuery geometry analysis & PyVista rendering…"}
             {phase === "EVALUATING" && "Gemini Vision AI is evaluating your design…"}
@@ -274,53 +309,54 @@ export function AssessmentDashboard({ phase, assessment, submissionId }: Assessm
         </div>
       )}
 
-      {/* Completed results */}
+      {/* ── Completed Results ─────────────────────── */}
       {isComplete && (
-        <div className="space-y-6">
-          {/* Score + Metrics row */}
-          <div className="flex flex-col lg:flex-row gap-6">
-            {/* Score */}
-            <div className="flex items-center justify-center lg:justify-start">
-              <ScoreGauge score={assessment.score} />
-            </div>
-
-            {/* Metrics grid */}
-            <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <MetricCard
-                icon={Box}
-                label="Volume"
-                value={assessment.metrics.volume.toFixed(1)}
-                unit="mm³"
-              />
-              <MetricCard
-                icon={Ruler}
-                label="Surface Area"
-                value={assessment.metrics.surfaceArea.toFixed(1)}
-                unit="mm²"
-              />
-              <MetricCard
-                icon={Target}
-                label="Center of Mass"
-                value={assessment.metrics.centerOfMass.map((v) => v.toFixed(1)).join(", ")}
-              />
-              <MetricCard
-                icon={Maximize2}
-                label="SV Ratio"
-                value={
-                  assessment.metrics.surfaceArea > 0
-                    ? (assessment.metrics.volume / assessment.metrics.surfaceArea).toFixed(3)
-                    : "N/A"
-                }
-              />
+        <>
+          {/* Score + Metrics */}
+          <div className="p-5">
+            <div className="flex flex-col lg:flex-row gap-5">
+              <div className="flex items-center justify-center lg:justify-start shrink-0">
+                <ScoreGauge score={assessment.score} />
+              </div>
+              <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <MetricCard
+                  icon={Box}
+                  label="Volume"
+                  value={assessment.metrics.volume.toFixed(1)}
+                  unit="mm³"
+                />
+                <MetricCard
+                  icon={Ruler}
+                  label="Surface Area"
+                  value={assessment.metrics.surfaceArea.toFixed(1)}
+                  unit="mm²"
+                />
+                <MetricCard
+                  icon={Target}
+                  label="Center of Mass"
+                  value={assessment.metrics.centerOfMass.map((v) => v.toFixed(1)).join(", ")}
+                />
+                <MetricCard
+                  icon={Maximize2}
+                  label="SV Ratio"
+                  value={
+                    assessment.metrics.surfaceArea > 0
+                      ? (assessment.metrics.volume / assessment.metrics.surfaceArea).toFixed(3)
+                      : "N/A"
+                  }
+                />
+              </div>
             </div>
           </div>
 
-          {/* Render + Report row */}
-          <div className="grid lg:grid-cols-2 gap-6">
-            <RenderCard renderUrls={assessment.renderUrls} />
-            <EngineeringReport reportKey={assessment.aiReportId} />
+          {/* Render + Report */}
+          <div className="p-5">
+            <div className="grid lg:grid-cols-2 gap-5">
+              <RenderCard renderUrls={assessment.renderUrls} />
+              <EngineeringReport reportKey={assessment.aiReportId} />
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );
