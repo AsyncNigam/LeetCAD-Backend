@@ -1,4 +1,4 @@
-import { Award, Medal, Trophy } from "lucide-react";
+import { Trophy } from "lucide-react";
 import type { LeaderboardEntry } from "../hooks/useRealtimeAssessment";
 
 // ── Rank Badge ──────────────────────────────────────────────
@@ -6,46 +6,43 @@ import type { LeaderboardEntry } from "../hooks/useRealtimeAssessment";
 function RankBadge({ rank }: { rank: number }) {
   if (rank === 1) {
     return (
-      <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-amber-500/20">
-        <Trophy className="h-4 w-4 text-amber-400" />
-      </div>
+      <span className="inline-flex items-center justify-center h-7 min-w-[1.75rem] px-2 py-1 rounded-md bg-yellow-50 text-yellow-800 border border-yellow-200 font-mono text-xs font-bold">
+        1
+      </span>
     );
   }
   if (rank === 2) {
     return (
-      <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-slate-300/10">
-        <Medal className="h-4 w-4 text-slate-300" />
-      </div>
+      <span className="inline-flex items-center justify-center h-7 min-w-[1.75rem] px-2 py-1 rounded-md bg-slate-50 text-slate-800 border border-slate-200 font-mono text-xs font-bold">
+        2
+      </span>
     );
   }
   if (rank === 3) {
     return (
-      <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-orange-500/15">
-        <Award className="h-4 w-4 text-orange-400" />
-      </div>
+      <span className="inline-flex items-center justify-center h-7 min-w-[1.75rem] px-2 py-1 rounded-md bg-orange-50 text-orange-800 border border-orange-200 font-mono text-xs font-bold">
+        3
+      </span>
     );
   }
   return (
-    <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-surface-700/40">
-      <span className="text-xs font-bold text-surface-200">#{rank}</span>
-    </div>
+    <span className="inline-flex items-center justify-center h-7 min-w-[1.75rem] text-text-muted font-mono text-sm">
+      {rank}
+    </span>
   );
 }
 
-// ── Score Pill ───────────────────────────────────────────────
+// ── Score Cell ───────────────────────────────────────────────
 
-function ScorePill({ score }: { score: number }) {
-  const color =
-    score >= 80
-      ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/25"
-      : score >= 60
-        ? "bg-amber-500/15 text-amber-400 border-amber-500/25"
-        : "bg-red-500/15 text-red-400 border-red-500/25";
+function ScoreCell({ score }: { score: number }) {
+  const rounded = Math.round(score);
+
+  if (score >= 80) {
+    return <span className="pill-mint">{rounded}</span>;
+  }
 
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold tabular-nums border ${color}`}>
-      {Math.round(score)}
-    </span>
+    <span className="metric-value text-sm">{rounded}</span>
   );
 }
 
@@ -58,55 +55,70 @@ interface LeaderboardProps {
 export function Leaderboard({ entries }: LeaderboardProps) {
   if (entries.length === 0) {
     return (
-      <div className="glass p-8 text-center">
-        <Trophy className="h-8 w-8 text-surface-700 mx-auto mb-3" />
-        <p className="text-sm text-surface-200">
-          No leaderboard entries yet. Upload a CAD file to compete!
-        </p>
+      <div className="panel">
+        <div className="bg-canvas border border-border rounded-xl p-10 text-center">
+          <Trophy className="h-8 w-8 text-text-faint mx-auto mb-3" />
+          <p className="text-sm text-text-muted">
+            No submissions yet. Be the first to run an analysis.
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="glass overflow-hidden animate-fade-in">
-      {/* Header */}
-      <div className="px-5 py-3 border-b border-surface-700/50 flex items-center gap-2">
-        <Trophy className="h-4 w-4 text-amber-400" />
-        <span className="text-sm font-semibold text-white">Global Leaderboard</span>
-        <span className="ml-auto text-xs text-surface-200">
-          Top {entries.length}
+    <div className="panel overflow-hidden animate-fade-in">
+      {/* ── Header ────────────────────────────────── */}
+      <div className="bg-surface-subtle px-5 py-4 border-b border-border flex items-center gap-2.5">
+        <Trophy className="h-4 w-4 text-brand-forest" />
+        <h3 className="text-lg font-bold text-brand-forest">Global Rankings</h3>
+        <span className="inline-flex items-center gap-1.5 ml-2 text-[10px] font-mono text-brand-forest uppercase tracking-widest">
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-brand-forest animate-pulse-slow" />
+          Live
+        </span>
+        <span className="ml-auto text-xs text-text-faint font-mono">
+          {entries.length} {entries.length === 1 ? "entry" : "entries"}
         </span>
       </div>
 
-      {/* Table */}
-      <div className="divide-y divide-surface-700/30">
-        {/* Column headers */}
-        <div className="grid grid-cols-[auto_1fr_auto] gap-4 px-5 py-2 text-xs font-medium text-surface-200 uppercase tracking-wider">
-          <span className="w-7 text-center">Rank</span>
-          <span>User</span>
-          <span>Score</span>
-        </div>
-
-        {/* Rows */}
-        {entries.map((entry) => (
-          <div
-            key={`${entry.rank}-${entry.userId}`}
-            className={`grid grid-cols-[auto_1fr_auto] gap-4 items-center px-5 py-3 transition-colors hover:bg-surface-700/20 ${
-              entry.rank <= 3 ? "bg-surface-800/30" : ""
-            }`}
-          >
-            <RankBadge rank={entry.rank} />
-            <div className="min-w-0">
-              <span className="text-sm text-white font-medium truncate block">
-                {entry.userId.length > 16
-                  ? `${entry.userId.slice(0, 8)}…${entry.userId.slice(-4)}`
-                  : entry.userId}
-              </span>
-            </div>
-            <ScorePill score={entry.score} />
-          </div>
-        ))}
-      </div>
+      {/* ── Table ─────────────────────────────────── */}
+      <table className="w-full">
+        <thead>
+          <tr className="bg-canvas">
+            <th className="w-16 px-5 py-2.5 text-left text-xs uppercase tracking-wider text-text-muted font-semibold">
+              Rank
+            </th>
+            <th className="px-4 py-2.5 text-left text-xs uppercase tracking-wider text-text-muted font-semibold">
+              Engineer
+            </th>
+            <th className="w-24 px-5 py-2.5 text-right text-xs uppercase tracking-wider text-text-muted font-semibold">
+              Score
+            </th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border">
+          {entries.map((entry) => (
+            <tr
+              key={`${entry.rank}-${entry.userId}`}
+              className="bg-surface hover:bg-surface-subtle transition-colors"
+            >
+              <td className="px-5 py-3">
+                <RankBadge rank={entry.rank} />
+              </td>
+              <td className="px-4 py-3">
+                <span className="text-sm font-medium text-text-primary truncate block">
+                  {entry.userId.length > 16
+                    ? `${entry.userId.slice(0, 8)}…${entry.userId.slice(-4)}`
+                    : entry.userId}
+                </span>
+              </td>
+              <td className="px-5 py-3 text-right">
+                <ScoreCell score={entry.score} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
