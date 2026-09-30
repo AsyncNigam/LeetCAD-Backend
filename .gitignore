@@ -4,3 +4,8 @@ dist
 *.tsbuildinfo
 PROJECT_ARCHITECTURE_AND_INTERVIEW_PREP.md
 .gitignore
+
+# Secrets — NEVER commit
+.env
+.env.local
+.env.*.local

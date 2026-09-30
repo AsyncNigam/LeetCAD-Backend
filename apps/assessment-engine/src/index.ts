@@ -6,7 +6,6 @@ import { spawn } from "node:child_process";
 import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
 import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
-import { GoogleGenAI, Type } from "@google/genai";
 import amqplib from "amqplib";
 import Redis from "ioredis";
 import pg from "pg";
@@ -26,9 +25,8 @@ const s3 = new S3Client({
 
 const S3_BUCKET = process.env.S3_BUCKET || "leetcad";
 
-const genai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY || "local_mock_key",
-});
+import { LLMRouter } from "./llm-router.js";
+const llmRouter = new LLMRouter();
 
 function buildRedisUrl(): string {
   if (process.env.REDIS_URL) return process.env.REDIS_URL;
@@ -64,11 +62,11 @@ const PROCESS_TIMEOUT_MS = 60_000;
 
 function runPython(inputPath: string, outputPath: string): Promise<{ stdout: string; stderr: string; code: number }> {
   return new Promise((resolve, reject) => {
-    const proc = spawn("python3", [
-      "src/sandbox/analyze_cad.py",
+    const proc = spawn("python", [
+      join(__dirname, "../src/sandbox/analyze_cad.py"),
       "--input", inputPath,
       "--output", outputPath,
-    ], { cwd: join(process.cwd()) });
+    ]);
 
     let stdout = "";
     let stderr = "";
@@ -169,82 +167,57 @@ async function main(): Promise<void> {
       const pngBuffer = await readFile(outputPath);
       const pngBase64 = pngBuffer.toString("base64");
 
-      const geminiResponse = await genai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: [
-          {
-            role: "user",
-            parts: [
-              {
-                inlineData: {
-                  mimeType: "image/png",
-                  data: pngBase64,
-                },
-              },
-              {
-                text: [
-                  "You are a senior mechanical engineer performing a quantitative and qualitative design review of a CAD model.",
-                  "The following physical metrics were extracted from the model:",
-                  `- Volume: ${metrics.volume} cubic units`,
-                  `- Surface Area: ${metrics.surfaceArea} square units`,
-                  `- Bounding Box: [${metrics.boundingBox?.join(", ") ?? "N/A"}]`,
-                  `- Center of Mass: [${metrics.centerOfMass.join(", ")}]`,
-                  "",
-                  "Based on the rendered image and these metrics, perform a rigorous engineering assessment.",
-                  "Calculate a numerical quality score from 0 to 100 by evaluating the following criteria:",
-                  "  - Geometry validity and watertightness (0–25 points)",
-                  "  - Material efficiency / surface-to-volume ratio (0–25 points)",
-                  "  - Symmetry and center of mass positioning (0–25 points)",
-                  "  - Manufacturability and wall thickness adequacy (0–25 points)",
-                  "",
-                  "Return the total score as an integer in the 'score' field.",
-                  "Provide a detailed engineering review as a structured Markdown report in the 'report' field.",
-                ].join("\n"),
-              },
-            ],
-          },
-        ],
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              score: {
-                type: Type.NUMBER,
-                description: "CAD quality score from 0 to 100",
-                minimum: 0,
-                maximum: 100,
-              },
-              report: {
-                type: Type.STRING,
-                description: "Detailed Markdown engineering review report",
-              },
-            },
-            required: ["score", "report"],
-          },
-        },
-      });
+      // ── Smart AI Evaluation via LLM Router ──────────────────
+      const metricsPrompt = [
+        "You are a senior mechanical engineer performing a quantitative and qualitative design review of a CAD model.",
+        "The following physical metrics were extracted from the model:",
+        `- Volume: ${metrics.volume} cubic units`,
+        `- Surface Area: ${metrics.surfaceArea} square units`,
+        `- Bounding Box: [${metrics.boundingBox?.join(", ") ?? "N/A"}]`,
+        `- Center of Mass: [${metrics.centerOfMass.join(", ")}]`,
+        "",
+        "Based on the rendered image and these metrics, perform a rigorous engineering assessment.",
+        "Calculate a numerical quality score from 0 to 100 by evaluating the following criteria:",
+        "  - Geometry validity and watertightness (0–25 points)",
+        "  - Material efficiency / surface-to-volume ratio (0–25 points)",
+        "  - Symmetry and center of mass positioning (0–25 points)",
+        "  - Manufacturability and wall thickness adequacy (0–25 points)",
+        "",
+        "Return your response as JSON with exactly two fields:",
+        '  { "score": <integer 0-100>, "report": "<detailed Markdown engineering review>" }',
+      ].join("\n");
+
+      const aiResult = await llmRouter.evaluate(pngBase64, metricsPrompt);
 
       let score: number;
       let aiReport: string;
 
-      try {
-        const parsed = JSON.parse(geminiResponse.text ?? "");
-        score = Math.max(0, Math.min(100, Number(parsed.score)));
-        if (Number.isNaN(score)) {
-          throw new Error("Parsed score is NaN");
-        }
-        aiReport = typeof parsed.report === "string" && parsed.report.length > 0
-          ? parsed.report
-          : "No report generated.";
-      } catch (parseErr) {
-        console.warn(
-          `[assessment-engine] Failed to parse structured Gemini response for submissionId=${payload.submissionId}. Using deterministic fallback.`,
-          parseErr,
-        );
+      if (aiResult) {
+        score = aiResult.score;
+        aiReport = aiResult.report;
+        console.log(`[assessment-engine] AI evaluation by ${aiResult.provider} (${aiResult.model}) in ${aiResult.latencyMs}ms`);
+      } else {
+        // All providers exhausted — deterministic fallback
+        console.warn(`[assessment-engine] All LLM providers failed. Using deterministic fallback for submissionId=${payload.submissionId}.`);
+        llmRouter.printStats();
         const svRatio = metrics.surfaceArea > 0 ? metrics.volume / metrics.surfaceArea : 0;
         score = Math.max(0, Math.min(100, Math.round(svRatio * 100)));
-        aiReport = "Assessment report could not be generated. Fallback score computed from surface-to-volume ratio.";
+        aiReport = [
+          "# CAD Assessment Report (Automated Fallback)",
+          "",
+          "The AI evaluation service was temporarily unavailable. This score was computed using deterministic geometric analysis.",
+          "",
+          "## Metrics",
+          `- **Volume:** ${metrics.volume.toFixed(2)} cubic units`,
+          `- **Surface Area:** ${metrics.surfaceArea.toFixed(2)} square units`,
+          `- **Center of Mass:** [${metrics.centerOfMass.join(", ")}]`,
+          `- **Surface-to-Volume Ratio:** ${svRatio.toFixed(4)}`,
+          "",
+          "## Score Breakdown",
+          `- Deterministic S/V score: **${score}/100**`,
+          "",
+          "> You can re-submit this file later for a full AI-powered review when the service is available.",
+        ].join("\n");
       }
 
       const reportKey = `reports/${payload.submissionId}.md`;
@@ -327,6 +300,30 @@ async function main(): Promise<void> {
       channel.ack(msg);
     } catch (error) {
       console.error(`[assessment-engine] Job ${jobId} failed:`, error);
+      // ── Graceful failure: update DB + notify frontend so UI doesn't hang ──
+      try {
+        await pool.query(
+          `UPDATE submissions SET status = $1, score = 0 WHERE id = $2 AND status != 'COMPLETED'`,
+          [SubmissionStatus.FAILED, payload.submissionId],
+        );
+        const failPayload: AssessmentCompletedPayload = {
+          submissionId: payload.submissionId,
+          userId: payload.userId,
+          status: SubmissionStatus.FAILED,
+          score: 0,
+          aiReportId: "",
+          metrics: { volume: 0, surfaceArea: 0, centerOfMass: [0, 0, 0] },
+          renderUrls: [],
+        };
+        channel.publish(
+          "leetcad.events",
+          "AssessmentCompleted",
+          Buffer.from(JSON.stringify(failPayload)),
+          { persistent: true, contentType: "application/json" },
+        );
+      } catch (notifyErr) {
+        console.error(`[assessment-engine] Could not notify frontend of failure:`, notifyErr);
+      }
       channel.nack(msg, false, false);
     } finally {
       await cleanupFile(inputPath);

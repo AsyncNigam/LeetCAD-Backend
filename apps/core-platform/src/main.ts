@@ -15,6 +15,7 @@ async function bootstrap() {
     { logger: WinstonModule.createLogger(winstonConfig) },
   );
 
+  app.setGlobalPrefix("api");
   await app.register(helmet);
   app.enableCors({ origin: true, credentials: true });
 
@@ -26,7 +27,7 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup("api", app, document);
+  SwaggerModule.setup("docs", app, document);
 
   await app.listen(3000, "0.0.0.0");
 }

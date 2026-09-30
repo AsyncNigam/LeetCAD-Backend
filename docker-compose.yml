@@ -4,7 +4,7 @@ services:
     container_name: leetcad-postgres
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "5434:5432"
     environment:
       POSTGRES_USER: leetcad
       POSTGRES_PASSWORD: leetcad_dev
@@ -22,7 +22,7 @@ services:
     container_name: leetcad-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "6500:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -67,6 +67,21 @@ services:
       interval: 15s
       timeout: 10s
       retries: 5
+
+  minio-setup:
+    image: minio/minio
+    container_name: leetcad-minio-setup
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set myminio http://minio:9000 leetcad leetcad_dev;
+      mc mb myminio/leetcad || true;
+      mc mb myminio/leetcad-uploads || true;
+      mc anonymous set public myminio/leetcad-uploads || true;
+      exit 0;
+      "
 
   # ── Application Services ─────────────────────────
 

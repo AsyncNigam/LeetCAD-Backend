@@ -91,7 +91,7 @@ export function useRealtimeAssessment(
       // Only update if it matches our tracked submission (or accept all)
       if (!activeSubmissionId || payload.submissionId === activeSubmissionId) {
         setAssessment(payload);
-        setPhase("COMPLETED");
+        setPhase(payload.status === "FAILED" ? "FAILED" : "COMPLETED");
       }
     });
 
