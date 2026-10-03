@@ -41,7 +41,7 @@ export class AuthController {
     const allowDevAuth = this.configService.get<string>("ALLOW_DEV_AUTH", "false");
 
     if (nodeEnv === "production" && allowDevAuth !== "true") {
-      throw new ForbiddenException("Dev login is disabled in production");
+      throw new ForbiddenException("Dev login bypass is disabled in production environments.");
     }
 
     return this.authService.devLogin();

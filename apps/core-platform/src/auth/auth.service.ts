@@ -56,7 +56,7 @@ export class AuthService {
       user = await this.userRepository.save(user);
     }
 
-    const accessToken = this.jwtService.sign({ userId: user.id });
+    const accessToken = this.jwtService.sign({ sub: user.id, email: user.email });
 
     return { accessToken, user: { id: user.id, email: user.email, name: user.name } };
   }
@@ -64,7 +64,7 @@ export class AuthService {
   async devLogin(): Promise<{ accessToken: string; user: { id: string; email: string; name: string } }> {
     const devGoogleId = "dev-reviewer-id";
     const devEmail = "reviewer@leetcad.internal";
-    const devName = "Cad Reviewer";
+    const devName = "CAD Reviewer (Dev)";
 
     let user = await this.userRepository.findOne({ where: { googleId: devGoogleId } });
 
@@ -73,7 +73,7 @@ export class AuthService {
       user = await this.userRepository.save(user);
     }
 
-    const accessToken = this.jwtService.sign({ userId: user.id });
+    const accessToken = this.jwtService.sign({ sub: user.id, email: user.email });
 
     return { accessToken, user: { id: user.id, email: user.email, name: user.name } };
   }

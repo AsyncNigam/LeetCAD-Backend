@@ -17,7 +17,17 @@ async function bootstrap() {
 
   app.setGlobalPrefix("api");
   await app.register(helmet);
-  app.enableCors({ origin: true, credentials: true });
+  
+  const allowedOrigins = process.env.FRONTEND_URL 
+    ? process.env.FRONTEND_URL.split(',') 
+    : ['http://localhost:5173', 'http://127.0.0.1:5173'];
+
+  app.enableCors({ 
+    origin: allowedOrigins,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
+    credentials: true,
+  });
 
   const config = new DocumentBuilder()
     .setTitle("LeetCAD Core Platform API")
