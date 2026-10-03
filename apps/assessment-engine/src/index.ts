@@ -25,8 +25,8 @@ const s3 = new S3Client({
 
 const S3_BUCKET = process.env.S3_BUCKET || "leetcad";
 
-import { LLMRouter } from "./llm-router.js";
-const llmRouter = new LLMRouter();
+import { GoogleGenAI, Type, Schema } from "@google/genai";
+const ai = new GoogleGenAI({});
 
 function buildRedisUrl(): string {
   if (process.env.REDIS_URL) return process.env.REDIS_URL;
@@ -188,58 +188,103 @@ async function main(): Promise<void> {
       const pngBuffer = await readFile(outputPath);
       const pngBase64 = pngBuffer.toString("base64");
 
-      // ── Smart AI Evaluation via LLM Router ──────────────────
-      const metricsPrompt = [
-        "You are a senior mechanical engineer performing a quantitative and qualitative design review of a CAD model.",
-        "The following physical metrics were extracted from the model:",
-        `- Volume: ${metrics.volume} cubic units`,
-        `- Surface Area: ${metrics.surfaceArea} square units`,
-        `- Bounding Box: [${metrics.boundingBox?.join(", ") ?? "N/A"}]`,
-        `- Center of Mass: [${metrics.centerOfMass.join(", ")}]`,
-        "",
-        "Based on the rendered image and these metrics, perform a rigorous engineering assessment.",
-        "Calculate a numerical quality score from 0 to 100 by evaluating the following criteria:",
-        "  - Geometry validity and watertightness (0–25 points)",
-        "  - Material efficiency / surface-to-volume ratio (0–25 points)",
-        "  - Symmetry and center of mass positioning (0–25 points)",
-        "  - Manufacturability and wall thickness adequacy (0–25 points)",
-        "",
-        "Return your response as JSON with exactly two fields:",
-        '  { "score": <integer 0-100>, "report": "<detailed Markdown engineering review>" }',
-      ].join("\n");
+      // 1. Deterministic Geometric Scoring (60 Points)
+      let deterministicScore = 0;
+      let svRatio = 0;
 
-      const aiResult = await llmRouter.evaluate(pngBase64, metricsPrompt);
+      const { volume, surfaceArea, boundingBox, centerOfMass } = metrics;
+      const isValid = boundingBox && boundingBox.length === 6 && volume > 0 && surfaceArea > 0;
 
-      let score: number;
-      let aiReport: string;
-
-      if (aiResult) {
-        score = aiResult.score;
-        aiReport = aiResult.report;
-        console.log(`[assessment-engine] AI evaluation by ${aiResult.provider} (${aiResult.model}) in ${aiResult.latencyMs}ms`);
+      if (!isValid) {
+        deterministicScore = 0;
       } else {
-        // All providers exhausted — deterministic fallback
-        console.warn(`[assessment-engine] All LLM providers failed. Using deterministic fallback for submissionId=${payload.submissionId}.`);
-        llmRouter.printStats();
-        const svRatio = metrics.surfaceArea > 0 ? metrics.volume / metrics.surfaceArea : 0;
-        score = Math.max(0, Math.min(100, Math.round(svRatio * 100)));
-        aiReport = [
-          "# CAD Assessment Report (Automated Fallback)",
-          "",
-          "The AI evaluation service was temporarily unavailable. This score was computed using deterministic geometric analysis.",
-          "",
-          "## Metrics",
-          `- **Volume:** ${metrics.volume.toFixed(2)} cubic units`,
-          `- **Surface Area:** ${metrics.surfaceArea.toFixed(2)} square units`,
-          `- **Center of Mass:** [${metrics.centerOfMass.join(", ")}]`,
-          `- **Surface-to-Volume Ratio:** ${svRatio.toFixed(4)}`,
-          "",
-          "## Score Breakdown",
-          `- Deterministic S/V score: **${score}/100**`,
-          "",
-          "> You can re-submit this file later for a full AI-powered review when the service is available.",
-        ].join("\n");
+        svRatio = surfaceArea / volume;
+        // Grant full 60 points if geometry metrics are valid
+        deterministicScore = 60;
       }
+
+      // 2. Gemini Multimodal Evaluation (40 Points)
+      let aiScore = 0;
+      let aiReport = "";
+
+      if (isValid) {
+        try {
+          const metricsPrompt = [
+            "You are a senior mechanical engineer performing a quantitative and qualitative design review of a CAD model.",
+            "The following physical metrics were extracted from the model:",
+            `- Volume: ${volume} cubic units`,
+            `- Surface Area: ${surfaceArea} square units`,
+            `- Bounding Box: [${boundingBox.join(", ")}]`,
+            `- Center of Mass: [${centerOfMass.join(", ")}]`,
+            "",
+            "Based on the rendered image and these metrics, perform a rigorous engineering assessment.",
+            "Calculate a numerical quality score from 0 to 40 by evaluating the following criteria:",
+            "  - Geometry validity and watertightness (0–10 points)",
+            "  - Material efficiency / surface-to-volume ratio (0–10 points)",
+            "  - Symmetry and center of mass positioning (0–10 points)",
+            "  - Manufacturability and wall thickness adequacy (0–10 points)",
+            "",
+            "Return your response as JSON matching the requested schema."
+          ].join("\n");
+
+          const responseSchema: Schema = {
+            type: Type.OBJECT,
+            properties: {
+              aiScore: {
+                type: Type.INTEGER,
+                description: "Numerical quality score from 0 to 40."
+              },
+              reportMarkdown: {
+                type: Type.STRING,
+                description: "Detailed Markdown engineering review."
+              }
+            },
+            required: ["aiScore", "reportMarkdown"]
+          };
+
+          // 3. Circuit Breaker & Timeout
+          const aiCall = ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: [
+              { text: metricsPrompt },
+              { inlineData: { mimeType: "image/jpeg", data: pngBase64 } }
+            ],
+            config: {
+              responseMimeType: "application/json",
+              responseSchema: responseSchema,
+            }
+          });
+
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            const timer = setTimeout(() => reject(new Error("Gemini timeout")), 15000);
+            aiCall.finally(() => clearTimeout(timer));
+          });
+
+          const response = await Promise.race([aiCall, timeoutPromise]);
+          if (response && response.text) {
+            const parsed = JSON.parse(response.text);
+            aiScore = typeof parsed.aiScore === "number" ? parsed.aiScore : 0;
+            aiReport = parsed.reportMarkdown || "No report generated.";
+            console.log(`[assessment-engine] AI evaluation complete: ${aiScore}/40`);
+          }
+        } catch (aiErr) {
+          console.warn(`[assessment-engine] AI evaluation failed or timed out:`, aiErr);
+          aiScore = 0;
+          aiReport = "> **System Notice:** AI evaluation timed out or is currently unavailable. Score reflects deterministic geometric metrics only.\n\n" +
+            "## Metrics\n" +
+            `- **Volume:** ${volume.toFixed(2)} cubic units\n` +
+            `- **Surface Area:** ${surfaceArea.toFixed(2)} square units\n` +
+            `- **Surface-to-Volume Ratio (SVR):** ${svRatio.toFixed(4)}\n\n` +
+            "## Score Breakdown\n" +
+            `- Deterministic Score: **${deterministicScore}/60**\n` +
+            `- AI Score: **0/40** (Unavailable)\n`;
+        }
+      } else {
+        aiReport = "> **System Notice:** Invalid geometry detected. Bounding box or volume is invalid.";
+      }
+
+      // 4. Score Aggregation
+      const score = deterministicScore + aiScore;
 
       const reportKey = `reports/${payload.submissionId}.md`;
       const renderKey = `renders/${payload.submissionId}.png`;
