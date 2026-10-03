@@ -322,13 +322,15 @@ async function main(): Promise<void> {
       }
 
 
+      // ── Unified State Transition ──────────────────────────────
       const updateResult = await pool.query(
-        `UPDATE submissions SET status = $1, score = $2, "aiReportId" = $3, metrics = $4 WHERE id = $5 AND status != 'COMPLETED'`,
+        `UPDATE submissions SET status = $1, score = $2, "aiReportId" = $3, metrics = $4, report = $5 WHERE id = $6 AND status != 'COMPLETED'`,
         [
           SubmissionStatus.COMPLETED,
           score,
           reportKey,
           JSON.stringify(metrics),
+          aiReport,
           payload.submissionId,
         ],
       );
@@ -338,6 +340,17 @@ async function main(): Promise<void> {
         channel.ack(msg);
         return;
       }
+
+      // Update Redis global leaderboard
+      const userEmail = payload.userId; // userId carries the email in our system
+      await redis.zadd("leetcad:leaderboard", score, userEmail);
+
+      // Emit realtime event for WebSocket push
+      await redis.publish("leetcad:events", JSON.stringify({
+        type: "assessment.completed",
+        submissionId: payload.submissionId,
+        score,
+      }));
 
       const completedPayload: AssessmentCompletedPayload = {
         submissionId: payload.submissionId,
@@ -357,7 +370,9 @@ async function main(): Promise<void> {
       );
 
       console.log(`[assessment-engine] Assessment complete for ${payload.submissionId}:`, {
-        metrics,
+        score,
+        deterministicScore,
+        aiScore,
         reportKey,
         renderKey,
         fence,

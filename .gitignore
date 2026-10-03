@@ -1,11 +1,68 @@
-node_modules
-dist
-.turbo
-*.tsbuildinfo
-PROJECT_ARCHITECTURE_AND_INTERVIEW_PREP.md
-.gitignore
+# ═══════════════════════════════════════════════════════════════
+# LeetCAD Monorepo — Root .gitignore
+# ═══════════════════════════════════════════════════════════════
 
-# Secrets — NEVER commit
+# ── Node.js & Turborepo ──────────────────────────────────────
+node_modules/
+dist/
+.turbo/
+*.tsbuildinfo
+coverage/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm/
+.yarn/cache
+.yarn/install-state.gz
+.eslintcache
+
+# ── Python (CadQuery / PyVista sandbox) ──────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyc
+.venv/
+venv/
+*.egg-info/
+*.egg
+.mypy_cache/
+.pytest_cache/
+
+# ── Frontend Builds (Vite / React) ───────────────────────────
+apps/web/dist/
+
+# ── Secrets & Keys — NEVER commit ────────────────────────────
 .env
 .env.local
 .env.*.local
+.env.development
+.env.production
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+
+# ── OS & Editor ──────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── Docker Infrastructure Volumes ────────────────────────────
+docker-data/
+pgdata/
+minio-data/
+rabbitmq-data/
+redis-data/
+.docker/
+
+# ── Misc ─────────────────────────────────────────────────────
+*.tgz
+*.gz
+*.zip
+PROJECT_ARCHITECTURE_AND_INTERVIEW_PREP.md
