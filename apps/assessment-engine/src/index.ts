@@ -58,18 +58,20 @@ async function cleanupFile(filePath: string): Promise<void> {
   }
 }
 
-const PROCESS_TIMEOUT_MS = 60_000;
+const PROCESS_TIMEOUT_MS = 30_000;
 
-function runPython(inputPath: string, outputPath: string): Promise<{ stdout: string; stderr: string; code: number }> {
+function runPython(inputPath: string, outputPath: string): Promise<{ metrics: any; stderr: string; code: number }> {
   return new Promise((resolve, reject) => {
-    const proc = spawn("python", [
+    // Windows dev environment safety fallback for python binary
+    const bin = process.platform === "win32" ? "python" : "python3";
+    const proc = spawn(bin, [
       join(__dirname, "../src/sandbox/analyze_cad.py"),
       "--input", inputPath,
       "--output", outputPath,
     ]);
 
-    let stdout = "";
-    let stderr = "";
+    let stdoutData = "";
+    let stderrData = "";
     let killed = false;
 
     const timer = setTimeout(() => {
@@ -77,8 +79,8 @@ function runPython(inputPath: string, outputPath: string): Promise<{ stdout: str
       proc.kill("SIGKILL");
     }, PROCESS_TIMEOUT_MS);
 
-    proc.stdout.on("data", (chunk: Buffer) => { stdout += chunk.toString(); });
-    proc.stderr.on("data", (chunk: Buffer) => { stderr += chunk.toString(); });
+    proc.stdout.on("data", (chunk: Buffer) => { stdoutData += chunk.toString(); });
+    proc.stderr.on("data", (chunk: Buffer) => { stderrData += chunk.toString(); });
 
     proc.on("error", (err) => {
       clearTimeout(timer);
@@ -88,10 +90,30 @@ function runPython(inputPath: string, outputPath: string): Promise<{ stdout: str
     proc.on("close", (code) => {
       clearTimeout(timer);
       if (killed) {
-        reject(new Error(`Process killed due to ${PROCESS_TIMEOUT_MS / 1000}s timeout`));
-        return;
+        return reject(new Error("Worker timeout: CadQuery geometric analysis exceeded 30 seconds."));
       }
-      resolve({ stdout, stderr, code: code ?? 1 });
+      if (code !== 0) {
+        return reject(new Error(`Python exited with ${code}:${stderrData}`));
+      }
+
+      let parsed;
+      try {
+        parsed = JSON.parse(stdoutData);
+      } catch (err) {
+        const firstBrace = stdoutData.indexOf("{");
+        const lastBrace = stdoutData.lastIndexOf("}");
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+          const sanitized = stdoutData.substring(firstBrace, lastBrace + 1);
+          try {
+            parsed = JSON.parse(sanitized);
+          } catch (sanitizeErr) {
+            return reject(new Error(`Failed to parse sanitized python output: ${stdoutData}`));
+          }
+        } else {
+          return reject(new Error(`Failed to parse python output: ${stdoutData}`));
+        }
+      }
+      resolve({ metrics: parsed.metrics, stderr: stderrData, code: code ?? 0 });
     });
   });
 }
@@ -152,17 +174,16 @@ async function main(): Promise<void> {
       const bodyStream = getObject.Body as Readable;
       await pipeline(bodyStream, createWriteStream(inputPath));
 
-      const result = await runPython(inputPath, outputPath);
-
-      if (result.code !== 0) {
-        console.error(`[assessment-engine] Python process exited with code ${result.code}`);
-        console.error(`[assessment-engine] stderr: ${result.stderr}`);
+      let runResult;
+      try {
+        runResult = await runPython(inputPath, outputPath);
+      } catch (pyErr) {
+        console.error(`[assessment-engine] Python execution error:`, pyErr);
         channel.nack(msg, false, false);
         return;
       }
 
-      const analysisResult = JSON.parse(result.stdout);
-      const { metrics } = analysisResult;
+      const { metrics } = runResult;
 
       const pngBuffer = await readFile(outputPath);
       const pngBase64 = pngBuffer.toString("base64");
