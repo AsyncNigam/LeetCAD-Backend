@@ -129,7 +129,7 @@ export function CadUploader({ onSubmissionCreated }: CadUploaderProps) {
   const startUpload = useCallback(
     async (selectedFile: File) => {
       if (!token) {
-        setError("Not authenticated. Please sign in first.");
+        setError("Authentication session expired. Please log in again.");
         setPhase("ERROR");
         return;
       }
@@ -161,6 +161,9 @@ export function CadUploader({ onSubmissionCreated }: CadUploaderProps) {
         });
 
         if (!presignRes.ok) {
+          if (presignRes.status === 401 || presignRes.status === 403) {
+            throw new Error("Unauthorized: Invalid or expired session.");
+          }
           const body = await presignRes.json().catch(() => ({}));
           throw new Error(body.message || `Failed to get upload URL (${presignRes.status})`);
         }
@@ -183,6 +186,9 @@ export function CadUploader({ onSubmissionCreated }: CadUploaderProps) {
         });
 
         if (!completeRes.ok) {
+          if (completeRes.status === 401 || completeRes.status === 403) {
+            throw new Error("Unauthorized: Invalid or expired session.");
+          }
           const body = await completeRes.json().catch(() => ({}));
           throw new Error(body.message || `Failed to register submission (${completeRes.status})`);
         }
