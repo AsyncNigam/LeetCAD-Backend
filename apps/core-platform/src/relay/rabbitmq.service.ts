@@ -1,5 +1,6 @@
 import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from "@nestjs/common";
 import amqplib from "amqplib";
+import { WebhookDispatcherService } from "../webhooks/webhook.dispatcher.service.js";
 
 @Injectable()
 export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
@@ -10,6 +11,9 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
   private readonly dlx = "dlx.exchange";
   private readonly dlq = "submissions.dlq";
   private readonly workerQueue = "submissions.queue";
+  private readonly webhooksQueue = "core-platform.webhooks.queue";
+
+  constructor(private readonly webhookDispatcher: WebhookDispatcherService) {}
 
   async onModuleInit() {
     const rabbitUrl = process.env.RABBITMQ_URL || "amqp://guest:guest@localhost:5672";
@@ -28,7 +32,26 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
     });
     await this.channel.bindQueue(this.workerQueue, this.exchange, "SubmissionCreated");
 
-    this.logger.log("RabbitMQ topology asserted (events + DLX/DLQ)");
+    // Webhook topology
+    await this.channel.assertQueue(this.webhooksQueue, { durable: true });
+    await this.channel.bindQueue(this.webhooksQueue, this.exchange, "AssessmentCompleted");
+
+    this.logger.log("RabbitMQ topology asserted (events + DLX/DLQ + Webhooks)");
+
+    // Start consuming
+    this.channel.consume(this.webhooksQueue, async (msg) => {
+      if (!msg) return;
+      try {
+        const payload = JSON.parse(msg.content.toString());
+        if (payload.userId) {
+          await this.webhookDispatcher.dispatch(payload.userId, payload);
+        }
+        this.channel?.ack(msg);
+      } catch (err: any) {
+        this.logger.error(`Error consuming AssessmentCompleted for webhooks: ${err.message}`);
+        this.channel?.nack(msg, false, false);
+      }
+    });
   }
 
   async onModuleDestroy() {
