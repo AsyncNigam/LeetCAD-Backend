@@ -9,10 +9,12 @@ import { StorageModule } from "./storage/storage.module.js";
 import { SubmissionsModule } from "./submissions/submissions.module.js";
 import { ProblemsModule } from "./problems/problems.module.js";
 import { RelayModule } from "./relay/relay.module.js";
+import { WebhooksModule } from "./webhooks/webhooks.module.js";
 import { Submission } from "./entities/Submission.js";
 import { Problem } from "./entities/Problem.js";
 import { OutboxEvent } from "./entities/OutboxEvent.js";
 import { User } from "./entities/User.js";
+import { Webhook } from "./webhooks/webhook.entity.js";
 
 @Module({
   imports: [
@@ -32,7 +34,7 @@ import { User } from "./entities/User.js";
         ssl: config.get<string>("DB_SSL", "false") === "true"
           ? { rejectUnauthorized: false }
           : false,
-        entities: [Submission, Problem, OutboxEvent, User],
+        entities: [Submission, Problem, OutboxEvent, User, Webhook],
         synchronize: true,
       }),
     }),
@@ -41,6 +43,7 @@ import { User } from "./entities/User.js";
     SubmissionsModule,
     ProblemsModule,
     RelayModule,
+    WebhooksModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
