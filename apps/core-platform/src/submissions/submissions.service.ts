@@ -9,7 +9,7 @@ import type { SubmissionCreatedPayload } from "@leetcad/shared-types";
 export class SubmissionsService {
   constructor(private readonly dataSource: DataSource) {}
 
-  async completeUpload(userId: string, fileKey: string): Promise<Submission> {
+  async completeUpload(userId: string, fileKey: string, problemId: string): Promise<Submission> {
     const queryRunner: QueryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -18,6 +18,7 @@ export class SubmissionsService {
       const submission = queryRunner.manager.create(Submission, {
         userId,
         fileKey,
+        problemId,
         status: SubmissionStatus.UPLOADED,
       });
       const savedSubmission = await queryRunner.manager.save(submission);

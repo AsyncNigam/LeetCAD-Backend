@@ -1,6 +1,7 @@
 import "reflect-metadata";
 import { DataSource } from "typeorm";
 import { Submission } from "./entities/Submission.js";
+import { Problem } from "./entities/Problem.js";
 import { OutboxEvent } from "./entities/OutboxEvent.js";
 import { User } from "./entities/User.js";
 
@@ -16,5 +17,5 @@ export const AppDataSource = new DataSource({
     : false,
   synchronize: true,
   logging: false,
-  entities: [Submission, OutboxEvent, User],
+  entities: [Submission, Problem, OutboxEvent, User],
 });

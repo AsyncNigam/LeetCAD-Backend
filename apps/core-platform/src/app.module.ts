@@ -9,6 +9,7 @@ import { StorageModule } from "./storage/storage.module.js";
 import { SubmissionsModule } from "./submissions/submissions.module.js";
 import { RelayModule } from "./relay/relay.module.js";
 import { Submission } from "./entities/Submission.js";
+import { Problem } from "./entities/Problem.js";
 import { OutboxEvent } from "./entities/OutboxEvent.js";
 import { User } from "./entities/User.js";
 
@@ -30,7 +31,7 @@ import { User } from "./entities/User.js";
         ssl: config.get<string>("DB_SSL", "false") === "true"
           ? { rejectUnauthorized: false }
           : false,
-        entities: [Submission, OutboxEvent, User],
+        entities: [Submission, Problem, OutboxEvent, User],
         synchronize: true,
       }),
     }),

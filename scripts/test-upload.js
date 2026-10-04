@@ -36,7 +36,10 @@ async function test() {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${accessToken}`
     },
-    body: JSON.stringify({ fileKey })
+    body: JSON.stringify({ 
+      fileKey,
+      problemId: "00000000-0000-0000-0000-000000000001"
+    })
   });
   
   console.log("Submission registered:", await submitRes.json());

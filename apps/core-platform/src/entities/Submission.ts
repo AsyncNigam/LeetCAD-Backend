@@ -4,7 +4,10 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
 } from "typeorm";
+import { Problem } from "./Problem.js";
 import { SubmissionStatus } from "@leetcad/shared-types";
 import type { AssessmentMetrics } from "@leetcad/shared-types";
 
@@ -15,6 +18,13 @@ export class Submission {
 
   @Column({ type: "varchar" })
   userId: string;
+
+  @Column({ type: "uuid" })
+  problemId: string;
+
+  @ManyToOne(() => Problem, (problem) => problem.submissions)
+  @JoinColumn({ name: "problemId" })
+  problem: Problem;
 
   @Column({ type: "varchar" })
   fileKey: string;

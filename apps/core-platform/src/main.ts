@@ -7,6 +7,8 @@ import { WinstonModule } from "nest-winston";
 import helmet from "@fastify/helmet";
 import { AppModule } from "./app.module.js";
 import { winstonConfig } from "./observability/logger.config.js";
+import { DataSource } from "typeorm";
+import { Problem, ProblemDifficulty } from "./entities/Problem.js";
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -38,6 +40,24 @@ async function bootstrap() {
 
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup("docs", app, document);
+
+  // Seed default problem
+  const dataSource = app.get(DataSource);
+  const problemRepo = dataSource.getRepository(Problem);
+  const existingProblem = await problemRepo.findOne({ where: {} });
+  if (!existingProblem) {
+    const seedProblem = problemRepo.create({
+      id: "00000000-0000-0000-0000-000000000001", // fixed ID for testing
+      title: "Calibration Cube (20mm)",
+      description: "A standard 20mm x 20mm x 20mm calibration cube.",
+      difficulty: ProblemDifficulty.EASY,
+      goldenFileKey: "problems/calibration-cube-golden.step",
+      targetVolume: 8000.0,
+      tolerance: 0.1,
+    });
+    await problemRepo.save(seedProblem);
+    console.log("Seeded default Problem: Calibration Cube");
+  }
 
   await app.listen(3000, "0.0.0.0");
 }

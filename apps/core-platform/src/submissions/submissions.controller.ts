@@ -4,6 +4,7 @@ import { SubmissionsService } from "./submissions.service.js";
 
 interface CompleteUploadRequest {
   fileKey: string;
+  problemId: string;
 }
 
 interface AuthenticatedRequest {
@@ -23,6 +24,7 @@ export class SubmissionsController {
     return this.submissionsService.completeUpload(
       req.user.userId,
       body.fileKey,
+      body.problemId,
     );
   }
 
