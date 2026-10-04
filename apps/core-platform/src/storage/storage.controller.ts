@@ -1,7 +1,7 @@
 import { Controller, Post, Body, Req, UseGuards, UsePipes, NotFoundException } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiBody } from "@nestjs/swagger";
 import { DataSource } from "typeorm";
-import { JwtAuthGuard } from "../auth/jwt-auth.guard.js";
+import { HybridAuthGuard } from "../auth/hybrid-auth.guard.js";
 import { StorageService } from "./storage.service.js";
 import { Problem } from "../entities/Problem.js";
 import { ZodValidationPipe } from "../common/pipes/zod-validation.pipe.js";
@@ -34,7 +34,7 @@ export class StorageController {
       },
     },
   })
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(HybridAuthGuard)
   @UsePipes(new ZodValidationPipe(PresignedUrlSchema))
   async getPresignedUrl(
     @Req() req: AuthenticatedRequest,
