@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, Global } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 import { PassportModule } from "@nestjs/passport";
 import { ConfigModule, ConfigService } from "@nestjs/config";
@@ -9,7 +9,10 @@ import { AuthController } from "./auth.controller.js";
 import { User } from "../entities/User.js";
 import { ApiKeysModule } from "../api-keys/api-keys.module.js";
 import { ApiKeyGuard } from "./api-key.guard.js";
+import { JwtAuthGuard } from "./jwt-auth.guard.js";
+import { HybridAuthGuard } from "./hybrid-auth.guard.js";
 
+@Global()
 @Module({
   imports: [
     PassportModule,
@@ -25,7 +28,7 @@ import { ApiKeyGuard } from "./api-key.guard.js";
     }),
   ],
   controllers: [AuthController],
-  providers: [JwtStrategy, AuthService, ApiKeyGuard],
-  exports: [JwtModule, ApiKeyGuard],
+  providers: [JwtStrategy, AuthService, ApiKeyGuard, JwtAuthGuard, HybridAuthGuard],
+  exports: [JwtModule, ApiKeyGuard, JwtAuthGuard, HybridAuthGuard],
 })
 export class AuthModule {}

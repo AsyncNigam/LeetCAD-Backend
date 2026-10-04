@@ -1,8 +1,10 @@
-import { Controller, Get, Param, NotFoundException } from "@nestjs/common";
+import { Controller, Get, Param, NotFoundException, UseGuards } from "@nestjs/common";
+import { HybridAuthGuard } from "../auth/hybrid-auth.guard.js";
 import { DataSource } from "typeorm";
 import { Problem } from "../entities/Problem.js";
 
 @Controller("problems")
+@UseGuards(HybridAuthGuard)
 export class ProblemsController {
   constructor(private readonly dataSource: DataSource) {}
 

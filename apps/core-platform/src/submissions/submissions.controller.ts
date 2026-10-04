@@ -1,5 +1,5 @@
 import { Controller, Post, Get, Body, Param, Req, UseGuards } from "@nestjs/common";
-import { JwtAuthGuard } from "../auth/jwt-auth.guard.js";
+import { HybridAuthGuard } from "../auth/hybrid-auth.guard.js";
 import { SubmissionsService } from "./submissions.service.js";
 
 interface CompleteUploadRequest {
@@ -16,7 +16,7 @@ export class SubmissionsController {
   constructor(private readonly submissionsService: SubmissionsService) {}
 
   @Post("complete")
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(HybridAuthGuard)
   async completeUpload(
     @Req() req: AuthenticatedRequest,
     @Body() body: CompleteUploadRequest,
@@ -29,7 +29,7 @@ export class SubmissionsController {
   }
 
   @Get(":id")
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(HybridAuthGuard)
   async getSubmission(
     @Req() req: AuthenticatedRequest,
     @Param("id") id: string,
