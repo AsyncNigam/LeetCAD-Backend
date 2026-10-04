@@ -1,4 +1,5 @@
 import { Controller, Post, Body, Req, UseGuards, UsePipes, NotFoundException } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiBody } from "@nestjs/swagger";
 import { DataSource } from "typeorm";
 import { HybridAuthGuard } from "../auth/hybrid-auth.guard.js";
@@ -36,6 +37,7 @@ export class StorageController {
   })
   @UseGuards(HybridAuthGuard)
   @UsePipes(new ZodValidationPipe(PresignedUrlSchema))
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   async getPresignedUrl(
     @Req() req: AuthenticatedRequest,
     @Body() body: PresignedUrlDto,

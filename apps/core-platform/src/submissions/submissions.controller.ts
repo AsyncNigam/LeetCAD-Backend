@@ -1,4 +1,5 @@
 import { Controller, Post, Get, Body, Param, Req, UseGuards } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { HybridAuthGuard } from "../auth/hybrid-auth.guard.js";
 import { SubmissionsService } from "./submissions.service.js";
 
@@ -17,6 +18,7 @@ export class SubmissionsController {
 
   @Post("complete")
   @UseGuards(HybridAuthGuard)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   async completeUpload(
     @Req() req: AuthenticatedRequest,
     @Body() body: CompleteUploadRequest,
