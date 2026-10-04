@@ -15,6 +15,8 @@ import { Problem } from "./entities/Problem.js";
 import { OutboxEvent } from "./entities/OutboxEvent.js";
 import { User } from "./entities/User.js";
 import { Webhook } from "./webhooks/webhook.entity.js";
+import { ApiKey } from "./api-keys/api-key.entity.js";
+import { ApiKeysModule } from "./api-keys/api-keys.module.js";
 
 @Module({
   imports: [
@@ -34,7 +36,7 @@ import { Webhook } from "./webhooks/webhook.entity.js";
         ssl: config.get<string>("DB_SSL", "false") === "true"
           ? { rejectUnauthorized: false }
           : false,
-        entities: [Submission, Problem, OutboxEvent, User, Webhook],
+        entities: [Submission, Problem, OutboxEvent, User, Webhook, ApiKey],
         synchronize: true,
       }),
     }),
@@ -44,6 +46,7 @@ import { Webhook } from "./webhooks/webhook.entity.js";
     ProblemsModule,
     RelayModule,
     WebhooksModule,
+    ApiKeysModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

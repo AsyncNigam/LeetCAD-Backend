@@ -4,6 +4,7 @@ import { Submission } from "./entities/Submission.js";
 import { Problem } from "./entities/Problem.js";
 import { OutboxEvent } from "./entities/OutboxEvent.js";
 import { User } from "./entities/User.js";
+import { ApiKey } from "./api-keys/api-key.entity.js";
 
 export const AppDataSource = new DataSource({
   type: "postgres",
@@ -17,5 +18,5 @@ export const AppDataSource = new DataSource({
     : false,
   synchronize: true,
   logging: false,
-  entities: [Submission, Problem, OutboxEvent, User],
+  entities: [Submission, Problem, OutboxEvent, User, ApiKey],
 });

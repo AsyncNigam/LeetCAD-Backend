@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
+import { useCallback, useRef, useState, type DragEvent } from "react";
 import {
   AlertCircle,
   CheckCircle2,
-  ChevronDown,
   FileCode,
   Loader2,
   RotateCcw,
@@ -27,16 +26,8 @@ interface SubmissionResult {
   createdAt: string;
 }
 
-interface ProblemOption {
-  id: string;
-  title: string;
-  difficulty: "EASY" | "MEDIUM" | "HARD";
-  description: string;
-  targetVolume: number;
-  tolerance: number;
-}
-
 interface CadUploaderProps {
+  problemId: string;
   onSubmissionCreated?: (submissionId: string) => void;
 }
 
@@ -52,12 +43,6 @@ const PHASE_MONO: Record<UploadPhase, string> = {
   NOTIFYING_BACKEND: "REGISTERING SUBMISSION",
   UPLOAD_SUCCESS: "COMPLETE",
   ERROR: "ERROR",
-};
-
-const DIFFICULTY_BADGE: Record<string, { bg: string; text: string; border: string }> = {
-  EASY: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
-  MEDIUM: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" },
-  HARD: { bg: "bg-red-50", text: "text-red-700", border: "border-red-200" },
 };
 
 // ── Helpers ─────────────────────────────────────────────────
@@ -132,7 +117,7 @@ function putToStorage(
 
 // ── Component ───────────────────────────────────────────────
 
-export function CadUploader({ onSubmissionCreated }: CadUploaderProps) {
+export function CadUploader({ problemId, onSubmissionCreated }: CadUploaderProps) {
   const { token } = useAuth();
 
   const [phase, setPhase] = useState<UploadPhase>("IDLE");
@@ -142,40 +127,7 @@ export function CadUploader({ onSubmissionCreated }: CadUploaderProps) {
   const [result, setResult] = useState<SubmissionResult | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
 
-  // ── Problem Selector State ──────────────────────────────
-  const [problems, setProblems] = useState<ProblemOption[]>([]);
-  const [selectedProblemId, setSelectedProblemId] = useState<string>("");
-  const [problemsLoading, setProblemsLoading] = useState(true);
-
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // ── Fetch problems on mount ─────────────────────────────
-  useEffect(() => {
-    let cancelled = false;
-    async function fetchProblems() {
-      try {
-        const res = await fetch("/api/problems");
-        if (res.ok) {
-          const data: ProblemOption[] = await res.json();
-          if (!cancelled) {
-            setProblems(data);
-            // Auto-select if only one problem exists
-            if (data.length === 1) {
-              setSelectedProblemId(data[0].id);
-            }
-          }
-        }
-      } catch (err) {
-        console.warn("Failed to fetch problems:", err);
-      } finally {
-        if (!cancelled) setProblemsLoading(false);
-      }
-    }
-    fetchProblems();
-    return () => { cancelled = true; };
-  }, []);
-
-  const selectedProblem = problems.find((p) => p.id === selectedProblemId);
 
   const reset = useCallback(() => {
     setPhase("IDLE");
@@ -194,8 +146,8 @@ export function CadUploader({ onSubmissionCreated }: CadUploaderProps) {
         return;
       }
 
-      if (!selectedProblemId) {
-        setError("Please select a problem statement before uploading.");
+      if (!problemId) {
+        setError("Missing problem statement ID.");
         setPhase("ERROR");
         return;
       }
@@ -223,7 +175,7 @@ export function CadUploader({ onSubmissionCreated }: CadUploaderProps) {
           body: JSON.stringify({
             filename: selectedFile.name,
             contentType: selectedFile.type || "application/octet-stream",
-            problemId: selectedProblemId,
+            problemId: problemId,
           }),
         });
 
@@ -249,7 +201,7 @@ export function CadUploader({ onSubmissionCreated }: CadUploaderProps) {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ fileKey, problemId: selectedProblemId }),
+          body: JSON.stringify({ fileKey, problemId: problemId }),
         });
 
         if (!completeRes.ok) {
@@ -276,7 +228,7 @@ export function CadUploader({ onSubmissionCreated }: CadUploaderProps) {
         setPhase("ERROR");
       }
     },
-    [token, selectedProblemId, onSubmissionCreated],
+    [token, problemId, onSubmissionCreated],
   );
 
   // ── Drag & Drop Handlers ──────────────────────────────────
@@ -315,7 +267,7 @@ export function CadUploader({ onSubmissionCreated }: CadUploaderProps) {
   // ── Derived state ─────────────────────────────────────────
 
   const isProcessing = ["REQUESTING_URL", "UPLOADING_TO_STORAGE", "NOTIFYING_BACKEND"].includes(phase);
-  const dropzoneDisabled = !selectedProblemId;
+  const dropzoneDisabled = !problemId;
   const stepIndex =
     phase === "REQUESTING_URL" ? 0
       : phase === "UPLOADING_TO_STORAGE" ? 1
@@ -331,101 +283,23 @@ export function CadUploader({ onSubmissionCreated }: CadUploaderProps) {
   // ── Render ────────────────────────────────────────────────
 
   return (
-    <div className="w-full max-w-2xl mx-auto animate-fade-in">
-      {/* ── IDLE / ERROR: Problem Selector + Dropzone ── */}
+    <div className="w-full mx-auto animate-fade-in">
+      {/* ── IDLE / ERROR: Dropzone ── */}
       {(phase === "IDLE" || phase === "ERROR") && (
-        <div className="space-y-4">
-          {/* ── Problem Selector ──────────────────── */}
-          <div className="space-y-2">
-            <label
-              htmlFor="problem-select"
-              className="block text-xs font-mono text-text-muted uppercase tracking-wider"
-            >
-              Problem Statement
-            </label>
-            <div className="relative">
-              <select
-                id="problem-select"
-                value={selectedProblemId}
-                onChange={(e) => {
-                  setSelectedProblemId(e.target.value);
-                  if (error === "Please select a problem statement before uploading.") {
-                    setError(null);
-                    setPhase("IDLE");
-                  }
-                }}
-                disabled={problemsLoading}
-                className={`
-                  w-full appearance-none cursor-pointer
-                  px-4 py-3 pr-10 rounded-xl
-                  bg-surface border border-border
-                  text-sm text-text-primary font-medium
-                  transition-all duration-200
-                  hover:border-border-strong
-                  focus:outline-none focus:ring-2 focus:ring-brand-forest/20 focus:border-brand-forest
-                  disabled:opacity-50 disabled:cursor-not-allowed
-                  ${!selectedProblemId ? "text-text-faint" : ""}
-                `}
-              >
-                <option value="">
-                  {problemsLoading ? "Loading problems…" : "— Select a Problem —"}
-                </option>
-                {problems.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    [{p.difficulty}] {p.title}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-faint pointer-events-none" />
-            </div>
-
-            {/* Selected problem details card */}
-            {selectedProblem && (
-              <div className="panel p-3 space-y-2 animate-fade-in">
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
-                      DIFFICULTY_BADGE[selectedProblem.difficulty]?.bg ?? ""
-                    } ${DIFFICULTY_BADGE[selectedProblem.difficulty]?.text ?? ""} ${
-                      DIFFICULTY_BADGE[selectedProblem.difficulty]?.border ?? ""
-                    }`}
-                  >
-                    {selectedProblem.difficulty}
-                  </span>
-                  <span className="text-sm font-semibold text-text-primary">
-                    {selectedProblem.title}
-                  </span>
-                </div>
-                <p className="text-xs text-text-muted leading-relaxed">
-                  {selectedProblem.description}
-                </p>
-                <div className="flex items-center gap-4 pt-1 border-t border-border">
-                  <span className="text-[10px] font-mono text-text-faint">
-                    TARGET VOL: <span className="text-text-primary">{selectedProblem.targetVolume.toFixed(1)} mm³</span>
-                  </span>
-                  <span className="text-[10px] font-mono text-text-faint">
-                    TOLERANCE: <span className="text-text-primary">±{selectedProblem.tolerance} mm³</span>
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-
+        <div className="flex flex-col w-full h-48">
           {/* ── Dropzone ─────────────────────────── */}
           <div
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
-            onDrop={dropzoneDisabled ? (e) => { e.preventDefault(); setError("Please select a problem statement before uploading."); setPhase("ERROR"); } : handleDrop}
-            onClick={dropzoneDisabled ? () => { setError("Please select a problem statement before uploading."); setPhase("ERROR"); } : () => inputRef.current?.click()}
-            className={`relative flex flex-col items-center justify-center gap-4 p-12
-              rounded-xl cursor-pointer
-              border-2 border-dashed
-              transition-all duration-200
+            onDrop={dropzoneDisabled ? (e) => { e.preventDefault(); setError("Missing problem statement ID."); setPhase("ERROR"); } : handleDrop}
+            onClick={dropzoneDisabled ? () => { setError("Missing problem statement ID."); setPhase("ERROR"); } : () => inputRef.current?.click()}
+            className={`relative flex flex-col items-center justify-center w-full h-full p-8
+              border-dashed border-2 rounded-xl transition-colors cursor-pointer
               ${dropzoneDisabled
-                ? "border-border/50 opacity-60 cursor-not-allowed"
+                ? "border-border/50 bg-canvas opacity-50 cursor-not-allowed"
                 : isDragOver
-                  ? "border-brand-forest bg-brand-mint/30 shadow-md"
-                  : "drafting-grid border-border hover:border-border-strong"
+                  ? "border-brand-forest bg-brand-mint/30"
+                  : "border-border bg-canvas hover:border-border-strong drafting-grid"
               }`}
           >
             <input
@@ -438,43 +312,42 @@ export function CadUploader({ onSubmissionCreated }: CadUploaderProps) {
             />
 
             <UploadCloud
-              className={`h-10 w-10 transition-colors ${
+              strokeWidth={1.5}
+              className={`h-8 w-8 mb-4 transition-colors ${
                 dropzoneDisabled
                   ? "text-text-faint/40"
-                  : isDragOver ? "text-brand-forest" : "text-text-faint"
+                  : isDragOver ? "text-brand-forest" : "text-text-muted"
               }`}
             />
 
             <div className="text-center">
-              <p className={`text-xl font-semibold mb-1 ${
-                dropzoneDisabled ? "text-text-faint" : "text-brand-forest"
+              <p className={`text-sm font-medium tracking-tight mb-1 ${
+                dropzoneDisabled ? "text-text-faint" : "text-text-primary"
               }`}>
                 {dropzoneDisabled
-                  ? "Select a problem first"
+                  ? "Unable to upload"
                   : isDragOver
-                    ? "Drop your CAD model here"
-                    : "Drop your CAD model here"}
+                    ? "Drop file to upload"
+                    : "Select or drop CAD file"}
               </p>
-              <p className="text-sm text-text-muted">
-                Supports{" "}
-                <span className="font-mono text-text-primary">.step</span>{" "}
-                <span className="font-mono text-text-primary">.stp</span>{" "}
-                <span className="font-mono text-text-primary">.stl</span>{" "}
-                up to 50 MB
+              <p className="text-xs text-text-muted tracking-tight">
+                <span className="font-mono text-text-primary">.step</span>,{" "}
+                <span className="font-mono text-text-primary">.stp</span>,{" "}
+                <span className="font-mono text-text-primary">.stl</span> up to 50MB
               </p>
             </div>
           </div>
 
           {/* Error Banner */}
           {phase === "ERROR" && error && (
-            <div className="flex items-start gap-3 p-4 rounded-md bg-red-50 border border-red-200 animate-fade-in">
-              <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+            <div className="flex items-start gap-3 mt-4 p-4 rounded-xl bg-red-50 border border-red-200 animate-fade-in shrink-0">
+              <AlertCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
               <div className="flex-1">
-                <p className="text-sm text-red-800">{error}</p>
+                <p className="text-sm text-red-800 tracking-tight">{error}</p>
               </div>
               <button
                 onClick={reset}
-                className="btn-ghost !px-2 !py-1 text-xs text-red-600 hover:text-red-800"
+                className="text-xs text-red-600 hover:text-red-800 font-medium tracking-tight transition-colors"
               >
                 Reset
               </button>
@@ -485,14 +358,14 @@ export function CadUploader({ onSubmissionCreated }: CadUploaderProps) {
 
       {/* ── PROCESSING: Upload Progress ─────────────── */}
       {isProcessing && (
-        <div className="panel p-6 space-y-5 animate-fade-in">
+        <div className="p-6 bg-canvas border border-border rounded-xl space-y-6 animate-fade-in">
           {/* File info */}
           {file && (
-            <div className="flex items-center gap-3 p-3 rounded-md bg-surface-subtle">
+            <div className="flex items-center gap-3 p-4 rounded-lg bg-surface-subtle border border-border">
               <FileCode className="h-5 w-5 text-brand-forest shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="font-mono text-sm text-text-primary truncate">{file.name}</p>
-                <p className="text-xs text-text-muted">{formatBytes(file.size)}</p>
+                <p className="font-mono text-sm text-text-primary truncate tracking-tight">{file.name}</p>
+                <p className="text-xs text-text-muted tracking-tight mt-0.5">{formatBytes(file.size)}</p>
               </div>
               <Loader2 className="h-4 w-4 text-brand-forest animate-spin shrink-0" />
             </div>
@@ -501,12 +374,12 @@ export function CadUploader({ onSubmissionCreated }: CadUploaderProps) {
           {/* Progress bar */}
           {phase === "UPLOADING_TO_STORAGE" && (
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-mono text-text-muted uppercase tracking-wider">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium text-text-muted tracking-tight uppercase">
                   {PHASE_MONO[phase]}: {progress}%
                 </span>
               </div>
-              <div className="h-1.5 rounded-full bg-surface-subtle overflow-hidden">
+              <div className="h-1.5 rounded-full bg-surface-subtle border border-border overflow-hidden">
                 <div
                   className="h-full rounded-full bg-brand-forest transition-all duration-300 ease-out"
                   style={{ width: `${progress}%` }}
@@ -518,20 +391,20 @@ export function CadUploader({ onSubmissionCreated }: CadUploaderProps) {
           {/* Phase label for non-upload steps */}
           {phase !== "UPLOADING_TO_STORAGE" && (
             <div className="flex items-center justify-center gap-2">
-              <Loader2 className="h-3.5 w-3.5 text-brand-forest animate-spin" />
-              <span className="text-xs font-mono text-text-muted uppercase tracking-wider">
+              <Loader2 className="h-4 w-4 text-brand-forest animate-spin" />
+              <span className="text-xs font-medium text-text-muted tracking-tight uppercase">
                 {PHASE_MONO[phase]}
               </span>
             </div>
           )}
 
           {/* Step indicators */}
-          <div className="space-y-2 pt-2 border-t border-border">
+          <div className="space-y-3 pt-4 border-t border-border">
             {steps.map((label, i) => {
               const isActive = i === stepIndex;
               const isDone = i < stepIndex;
               return (
-                <div key={label} className="flex items-center gap-2.5">
+                <div key={label} className="flex items-center gap-3">
                   {isDone ? (
                     <CheckCircle2 className="h-4 w-4 text-brand-mint-dark shrink-0" />
                   ) : isActive ? (
@@ -540,7 +413,7 @@ export function CadUploader({ onSubmissionCreated }: CadUploaderProps) {
                     <div className="h-4 w-4 rounded-full border border-border shrink-0" />
                   )}
                   <span
-                    className={`text-sm ${
+                    className={`text-sm tracking-tight ${
                       isDone
                         ? "text-brand-mint-dark"
                         : isActive
@@ -559,44 +432,38 @@ export function CadUploader({ onSubmissionCreated }: CadUploaderProps) {
 
       {/* ── SUCCESS: Submission Created ─────────────── */}
       {phase === "UPLOAD_SUCCESS" && result && (
-        <div className="panel p-6 space-y-5 animate-fade-in">
-          <div className="flex flex-col items-center gap-3 py-4">
-            <div className="rounded-full p-3 bg-brand-mint">
-              <CheckCircle2 className="h-8 w-8 text-brand-mint-dark" />
+        <div className="p-8 bg-canvas border border-border rounded-xl space-y-6 animate-fade-in flex flex-col justify-center">
+          <div className="flex flex-col items-center gap-4 py-4">
+            <div className="rounded-full p-4 bg-brand-mint/20 border border-brand-mint">
+              <CheckCircle2 className="h-6 w-6 text-brand-mint-dark" />
             </div>
             <div className="text-center">
-              <p className="text-lg font-semibold text-text-primary">Upload Complete</p>
-              <p className="text-sm text-text-muted mt-1">
-                Your CAD file is now queued for AI assessment.
+              <p className="text-lg font-medium tracking-tight text-text-primary">Upload Complete</p>
+              <p className="text-sm text-text-muted tracking-tight mt-1">
+                Your CAD file is queued for AI assessment.
               </p>
             </div>
           </div>
 
           {/* Submission details */}
-          <div className="rounded-md bg-surface-subtle p-4 space-y-2.5">
+          <div className="rounded-lg bg-surface-subtle border border-border p-5 space-y-3">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-text-muted">Submission ID</span>
+              <span className="text-text-muted tracking-tight">Submission ID</span>
               <span className="font-mono text-xs text-brand-forest">{result.id}</span>
             </div>
-            {selectedProblem && (
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-text-muted">Problem</span>
-                <span className="text-text-primary text-xs">{selectedProblem.title}</span>
-              </div>
-            )}
             {file && (
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-text-muted">File</span>
-                <span className="text-text-primary font-mono text-xs truncate max-w-[200px]">{file.name}</span>
+              <div className="flex items-center justify-between text-sm pt-3 border-t border-border">
+                <span className="text-text-muted tracking-tight">File</span>
+                <span className="text-text-primary font-mono text-xs truncate max-w-[180px]">{file.name}</span>
               </div>
             )}
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-text-muted">Status</span>
+            <div className="flex items-center justify-between text-sm pt-3 border-t border-border">
+              <span className="text-text-muted tracking-tight">Status</span>
               <span className="pill-mint">{result.status}</span>
             </div>
           </div>
 
-          <button onClick={reset} className="btn-primary w-full">
+          <button onClick={reset} className="btn-primary w-full mt-2">
             <RotateCcw className="h-4 w-4" />
             Upload Another File
           </button>
