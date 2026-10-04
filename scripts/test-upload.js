@@ -14,8 +14,12 @@ async function test() {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${accessToken}`
     },
-    body: JSON.stringify({ filename: "cube.step", contentType: "application/octet-stream" })
+    body: JSON.stringify({ filename: "cube.step", contentType: "application/octet-stream", problemId: "00000000-0000-0000-0000-000000000001" })
   });
+  if (!presignRes.ok) {
+    console.error("Failed to get presigned URL:", await presignRes.text());
+    return;
+  }
   const { url, fileKey } = await presignRes.json();
   
   console.log("Got presigned URL and fileKey:", fileKey);

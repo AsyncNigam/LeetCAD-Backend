@@ -1,7 +1,8 @@
-import { useCallback, useRef, useState, type DragEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 import {
   AlertCircle,
   CheckCircle2,
+  ChevronDown,
   FileCode,
   Loader2,
   RotateCcw,
@@ -26,6 +27,15 @@ interface SubmissionResult {
   createdAt: string;
 }
 
+interface ProblemOption {
+  id: string;
+  title: string;
+  difficulty: "EASY" | "MEDIUM" | "HARD";
+  description: string;
+  targetVolume: number;
+  tolerance: number;
+}
+
 interface CadUploaderProps {
   onSubmissionCreated?: (submissionId: string) => void;
 }
@@ -42,6 +52,12 @@ const PHASE_MONO: Record<UploadPhase, string> = {
   NOTIFYING_BACKEND: "REGISTERING SUBMISSION",
   UPLOAD_SUCCESS: "COMPLETE",
   ERROR: "ERROR",
+};
+
+const DIFFICULTY_BADGE: Record<string, { bg: string; text: string; border: string }> = {
+  EASY: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
+  MEDIUM: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" },
+  HARD: { bg: "bg-red-50", text: "text-red-700", border: "border-red-200" },
 };
 
 // ── Helpers ─────────────────────────────────────────────────
@@ -126,7 +142,40 @@ export function CadUploader({ onSubmissionCreated }: CadUploaderProps) {
   const [result, setResult] = useState<SubmissionResult | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
 
+  // ── Problem Selector State ──────────────────────────────
+  const [problems, setProblems] = useState<ProblemOption[]>([]);
+  const [selectedProblemId, setSelectedProblemId] = useState<string>("");
+  const [problemsLoading, setProblemsLoading] = useState(true);
+
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // ── Fetch problems on mount ─────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchProblems() {
+      try {
+        const res = await fetch("/api/problems");
+        if (res.ok) {
+          const data: ProblemOption[] = await res.json();
+          if (!cancelled) {
+            setProblems(data);
+            // Auto-select if only one problem exists
+            if (data.length === 1) {
+              setSelectedProblemId(data[0].id);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to fetch problems:", err);
+      } finally {
+        if (!cancelled) setProblemsLoading(false);
+      }
+    }
+    fetchProblems();
+    return () => { cancelled = true; };
+  }, []);
+
+  const selectedProblem = problems.find((p) => p.id === selectedProblemId);
 
   const reset = useCallback(() => {
     setPhase("IDLE");
@@ -141,6 +190,12 @@ export function CadUploader({ onSubmissionCreated }: CadUploaderProps) {
     async (selectedFile: File) => {
       if (!token) {
         setError("Authentication session expired. Please log in again.");
+        setPhase("ERROR");
+        return;
+      }
+
+      if (!selectedProblemId) {
+        setError("Please select a problem statement before uploading.");
         setPhase("ERROR");
         return;
       }
@@ -168,6 +223,7 @@ export function CadUploader({ onSubmissionCreated }: CadUploaderProps) {
           body: JSON.stringify({
             filename: selectedFile.name,
             contentType: selectedFile.type || "application/octet-stream",
+            problemId: selectedProblemId,
           }),
         });
 
@@ -185,7 +241,7 @@ export function CadUploader({ onSubmissionCreated }: CadUploaderProps) {
         setPhase("UPLOADING_TO_STORAGE");
         await putToStorage(uploadUrl, selectedFile, setProgress);
 
-        // Step 3: Notify backend
+        // Step 3: Notify backend with problemId
         setPhase("NOTIFYING_BACKEND");
         const completeRes = await fetch("/api/submissions/complete", {
           method: "POST",
@@ -193,7 +249,7 @@ export function CadUploader({ onSubmissionCreated }: CadUploaderProps) {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ fileKey }),
+          body: JSON.stringify({ fileKey, problemId: selectedProblemId }),
         });
 
         if (!completeRes.ok) {
@@ -220,7 +276,7 @@ export function CadUploader({ onSubmissionCreated }: CadUploaderProps) {
         setPhase("ERROR");
       }
     },
-    [token, onSubmissionCreated],
+    [token, selectedProblemId, onSubmissionCreated],
   );
 
   // ── Drag & Drop Handlers ──────────────────────────────────
@@ -259,6 +315,7 @@ export function CadUploader({ onSubmissionCreated }: CadUploaderProps) {
   // ── Derived state ─────────────────────────────────────────
 
   const isProcessing = ["REQUESTING_URL", "UPLOADING_TO_STORAGE", "NOTIFYING_BACKEND"].includes(phase);
+  const dropzoneDisabled = !selectedProblemId;
   const stepIndex =
     phase === "REQUESTING_URL" ? 0
       : phase === "UPLOADING_TO_STORAGE" ? 1
@@ -275,21 +332,100 @@ export function CadUploader({ onSubmissionCreated }: CadUploaderProps) {
 
   return (
     <div className="w-full max-w-2xl mx-auto animate-fade-in">
-      {/* ── IDLE / ERROR: Dropzone ──────────────────── */}
+      {/* ── IDLE / ERROR: Problem Selector + Dropzone ── */}
       {(phase === "IDLE" || phase === "ERROR") && (
         <div className="space-y-4">
+          {/* ── Problem Selector ──────────────────── */}
+          <div className="space-y-2">
+            <label
+              htmlFor="problem-select"
+              className="block text-xs font-mono text-text-muted uppercase tracking-wider"
+            >
+              Problem Statement
+            </label>
+            <div className="relative">
+              <select
+                id="problem-select"
+                value={selectedProblemId}
+                onChange={(e) => {
+                  setSelectedProblemId(e.target.value);
+                  if (error === "Please select a problem statement before uploading.") {
+                    setError(null);
+                    setPhase("IDLE");
+                  }
+                }}
+                disabled={problemsLoading}
+                className={`
+                  w-full appearance-none cursor-pointer
+                  px-4 py-3 pr-10 rounded-xl
+                  bg-surface border border-border
+                  text-sm text-text-primary font-medium
+                  transition-all duration-200
+                  hover:border-border-strong
+                  focus:outline-none focus:ring-2 focus:ring-brand-forest/20 focus:border-brand-forest
+                  disabled:opacity-50 disabled:cursor-not-allowed
+                  ${!selectedProblemId ? "text-text-faint" : ""}
+                `}
+              >
+                <option value="">
+                  {problemsLoading ? "Loading problems…" : "— Select a Problem —"}
+                </option>
+                {problems.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    [{p.difficulty}] {p.title}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-faint pointer-events-none" />
+            </div>
+
+            {/* Selected problem details card */}
+            {selectedProblem && (
+              <div className="panel p-3 space-y-2 animate-fade-in">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
+                      DIFFICULTY_BADGE[selectedProblem.difficulty]?.bg ?? ""
+                    } ${DIFFICULTY_BADGE[selectedProblem.difficulty]?.text ?? ""} ${
+                      DIFFICULTY_BADGE[selectedProblem.difficulty]?.border ?? ""
+                    }`}
+                  >
+                    {selectedProblem.difficulty}
+                  </span>
+                  <span className="text-sm font-semibold text-text-primary">
+                    {selectedProblem.title}
+                  </span>
+                </div>
+                <p className="text-xs text-text-muted leading-relaxed">
+                  {selectedProblem.description}
+                </p>
+                <div className="flex items-center gap-4 pt-1 border-t border-border">
+                  <span className="text-[10px] font-mono text-text-faint">
+                    TARGET VOL: <span className="text-text-primary">{selectedProblem.targetVolume.toFixed(1)} mm³</span>
+                  </span>
+                  <span className="text-[10px] font-mono text-text-faint">
+                    TOLERANCE: <span className="text-text-primary">±{selectedProblem.tolerance} mm³</span>
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Dropzone ─────────────────────────── */}
           <div
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            onClick={() => inputRef.current?.click()}
+            onDrop={dropzoneDisabled ? (e) => { e.preventDefault(); setError("Please select a problem statement before uploading."); setPhase("ERROR"); } : handleDrop}
+            onClick={dropzoneDisabled ? () => { setError("Please select a problem statement before uploading."); setPhase("ERROR"); } : () => inputRef.current?.click()}
             className={`relative flex flex-col items-center justify-center gap-4 p-12
               rounded-xl cursor-pointer
               border-2 border-dashed
               transition-all duration-200
-              ${isDragOver
-                ? "border-brand-forest bg-brand-mint/30 shadow-md"
-                : "drafting-grid border-border hover:border-border-strong"
+              ${dropzoneDisabled
+                ? "border-border/50 opacity-60 cursor-not-allowed"
+                : isDragOver
+                  ? "border-brand-forest bg-brand-mint/30 shadow-md"
+                  : "drafting-grid border-border hover:border-border-strong"
               }`}
           >
             <input
@@ -298,19 +434,26 @@ export function CadUploader({ onSubmissionCreated }: CadUploaderProps) {
               accept=".step,.stp,.stl"
               onChange={handleFileSelect}
               className="hidden"
+              disabled={dropzoneDisabled}
             />
 
             <UploadCloud
               className={`h-10 w-10 transition-colors ${
-                isDragOver ? "text-brand-forest" : "text-text-faint"
+                dropzoneDisabled
+                  ? "text-text-faint/40"
+                  : isDragOver ? "text-brand-forest" : "text-text-faint"
               }`}
             />
 
             <div className="text-center">
               <p className={`text-xl font-semibold mb-1 ${
-                isDragOver ? "text-brand-forest" : "text-brand-forest"
+                dropzoneDisabled ? "text-text-faint" : "text-brand-forest"
               }`}>
-                {isDragOver ? "Drop your CAD model here" : "Drop your CAD model here"}
+                {dropzoneDisabled
+                  ? "Select a problem first"
+                  : isDragOver
+                    ? "Drop your CAD model here"
+                    : "Drop your CAD model here"}
               </p>
               <p className="text-sm text-text-muted">
                 Supports{" "}
@@ -435,6 +578,12 @@ export function CadUploader({ onSubmissionCreated }: CadUploaderProps) {
               <span className="text-text-muted">Submission ID</span>
               <span className="font-mono text-xs text-brand-forest">{result.id}</span>
             </div>
+            {selectedProblem && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-text-muted">Problem</span>
+                <span className="text-text-primary text-xs">{selectedProblem.title}</span>
+              </div>
+            )}
             {file && (
               <div className="flex items-center justify-between text-sm">
                 <span className="text-text-muted">File</span>

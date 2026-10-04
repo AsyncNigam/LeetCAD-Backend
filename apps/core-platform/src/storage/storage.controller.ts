@@ -1,7 +1,9 @@
-import { Controller, Post, Body, Req, UseGuards, UsePipes } from "@nestjs/common";
+import { Controller, Post, Body, Req, UseGuards, UsePipes, NotFoundException } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiBody } from "@nestjs/swagger";
+import { DataSource } from "typeorm";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard.js";
 import { StorageService } from "./storage.service.js";
+import { Problem } from "../entities/Problem.js";
 import { ZodValidationPipe } from "../common/pipes/zod-validation.pipe.js";
 import { PresignedUrlSchema } from "./dto/presigned-url.dto.js";
 import type { PresignedUrlDto } from "./dto/presigned-url.dto.js";
@@ -14,17 +16,21 @@ interface AuthenticatedRequest {
 @ApiBearerAuth()
 @Controller("storage")
 export class StorageController {
-  constructor(private readonly storageService: StorageService) {}
+  constructor(
+    private readonly storageService: StorageService,
+    private readonly dataSource: DataSource,
+  ) {}
 
   @Post("presigned-url")
   @ApiOperation({ summary: "Generate MinIO Presigned URL for CAD Upload" })
   @ApiBody({
     schema: {
       type: "object",
-      required: ["filename", "contentType"],
+      required: ["filename", "contentType", "problemId"],
       properties: {
         filename: { type: "string", description: "Name of the CAD file" },
         contentType: { type: "string", description: "MIME type of the file" },
+        problemId: { type: "string", description: "UUID of the problem statement" },
       },
     },
   })
@@ -34,6 +40,11 @@ export class StorageController {
     @Req() req: AuthenticatedRequest,
     @Body() body: PresignedUrlDto,
   ) {
+    const problem = await this.dataSource.getRepository(Problem).findOne({ where: { id: body.problemId } });
+    if (!problem) {
+      throw new NotFoundException("Problem statement not found");
+    }
+
     return this.storageService.getPresignedUploadUrl(
       req.user.userId,
       body.filename,
