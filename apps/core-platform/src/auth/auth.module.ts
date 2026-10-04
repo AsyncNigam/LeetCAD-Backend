@@ -7,10 +7,13 @@ import { JwtStrategy } from "./jwt.strategy.js";
 import { AuthService } from "./auth.service.js";
 import { AuthController } from "./auth.controller.js";
 import { User } from "../entities/User.js";
+import { ApiKeysModule } from "../api-keys/api-keys.module.js";
+import { ApiKeyGuard } from "./api-key.guard.js";
 
 @Module({
   imports: [
     PassportModule,
+    ApiKeysModule,
     TypeOrmModule.forFeature([User]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -22,7 +25,7 @@ import { User } from "../entities/User.js";
     }),
   ],
   controllers: [AuthController],
-  providers: [JwtStrategy, AuthService],
-  exports: [JwtModule],
+  providers: [JwtStrategy, AuthService, ApiKeyGuard],
+  exports: [JwtModule, ApiKeyGuard],
 })
 export class AuthModule {}
