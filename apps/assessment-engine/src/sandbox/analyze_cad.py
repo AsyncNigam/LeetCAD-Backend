@@ -15,6 +15,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", required=True, help="Path to .step file")
     parser.add_argument("--output", required=True, help="Path to save rendered image")
+    parser.add_argument("--golden-file", required=False, help="Path to golden .step file for boolean diffing")
     args = parser.parse_args()
 
     try:
@@ -66,12 +67,43 @@ def main() -> None:
         # 3. Base64 Output
         render_base64 = base64.b64encode(jpeg_bytes).decode("utf-8")
 
+        # 4. Boolean Diff against Golden Reference
+        variance_mm3 = 0.0
+        if args.golden_file:
+            try:
+                golden_shape = cq.importers.importStep(args.golden_file)
+                
+                user_val = shape.val()
+                golden_val = golden_shape.val()
+                
+                uc = user_val.Center()
+                gc = golden_val.Center()
+                
+                # Align centroids to prevent penalty for offset origins
+                user_aligned = user_val.translate((gc.x - uc.x, gc.y - uc.y, gc.z - uc.z))
+                
+                missing = golden_val.cut(user_aligned)
+                missing_vol = missing.Volume() if missing.isValid() else 0.0
+                
+                extra = user_aligned.cut(golden_val)
+                extra_vol = extra.Volume() if extra.isValid() else 0.0
+                
+                if missing_vol < 0.01: missing_vol = 0.0
+                if extra_vol < 0.01: extra_vol = 0.0
+                
+                variance_mm3 = missing_vol + extra_vol
+                print(f"[sandbox] Boolean diff variance: {variance_mm3} mm3", file=sys.stderr)
+            except Exception as e:
+                print(f"[sandbox] Boolean diff failed: {e}", file=sys.stderr)
+                variance_mm3 = -1.0
+
         output = {
             "metrics": {
                 "volume": volume,
                 "surfaceArea": area,
                 "boundingBox": [bb.xmin, bb.ymin, bb.zmin, bb.xmax, bb.ymax, bb.zmax],
                 "centerOfMass": [center.x, center.y, center.z],
+                "variance_mm3": variance_mm3,
             },
             "render_base64": render_base64,
             "renders": [args.output],

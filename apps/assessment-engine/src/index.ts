@@ -60,15 +60,19 @@ async function cleanupFile(filePath: string): Promise<void> {
 
 const PROCESS_TIMEOUT_MS = 30_000;
 
-function runPython(inputPath: string, outputPath: string): Promise<{ metrics: any; stderr: string; code: number }> {
+function runPython(inputPath: string, outputPath: string, goldenPath?: string): Promise<{ metrics: any; stderr: string; code: number }> {
   return new Promise((resolve, reject) => {
     // Windows dev environment safety fallback for python binary
     const bin = process.platform === "win32" ? "python" : "python3";
-    const proc = spawn(bin, [
+    const args = [
       join(__dirname, "../sandbox/analyze_cad.py"),
       "--input", inputPath,
       "--output", outputPath,
-    ]);
+    ];
+    if (goldenPath) {
+      args.push("--golden-file", goldenPath);
+    }
+    const proc = spawn(bin, args);
 
     let stdoutData = "";
     let stderrData = "";
@@ -161,7 +165,29 @@ async function main(): Promise<void> {
 
     console.log(`[assessment-engine] Processing job ${jobId} for submission ${payload.submissionId}`);
 
+    let goldenFileKey: string | null = null;
+    let goldenPath: string | null = null;
+
     try {
+      // 0. Fetch problem info for golden file
+      const dbResult = await pool.query(
+        `SELECT p."goldenFileKey" FROM problems p JOIN submissions s ON s."problemId" = p.id WHERE s.id = $1`,
+        [payload.submissionId]
+      );
+      if (dbResult.rows.length > 0) {
+        goldenFileKey = dbResult.rows[0].goldenFileKey;
+      }
+
+      if (goldenFileKey) {
+        goldenPath = join(tmpdir(), `${jobId}-golden.step`);
+        const getGolden = await s3.send(new GetObjectCommand({
+          Bucket: S3_BUCKET,
+          Key: goldenFileKey,
+        }));
+        if (getGolden.Body) {
+          await pipeline(getGolden.Body as Readable, createWriteStream(goldenPath));
+        }
+      }
       const getObject = await s3.send(new GetObjectCommand({
         Bucket: payload.bucketName,
         Key: payload.fileKey,
@@ -176,7 +202,7 @@ async function main(): Promise<void> {
 
       let runResult;
       try {
-        runResult = await runPython(inputPath, outputPath);
+        runResult = await runPython(inputPath, outputPath, goldenPath || undefined);
       } catch (pyErr) {
         console.error(`[assessment-engine] Python execution error:`, pyErr);
         throw pyErr; // Throw to outer catch block to trigger UI failure state
@@ -434,6 +460,9 @@ async function main(): Promise<void> {
     } finally {
       await cleanupFile(inputPath);
       await cleanupFile(outputPath);
+      if (goldenPath) {
+        await cleanupFile(goldenPath);
+      }
     }
   });
 }
