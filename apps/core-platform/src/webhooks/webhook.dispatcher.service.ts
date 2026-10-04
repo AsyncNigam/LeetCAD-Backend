@@ -14,7 +14,7 @@ export class WebhookDispatcherService {
     private readonly webhooksRepository: Repository<Webhook>,
   ) {}
 
-  async dispatch(userId: string, payload: any): Promise<void> {
+  async dispatch(userId: string, payload: any): Promise<boolean> {
     try {
       const webhook = await this.webhooksRepository.findOne({
         where: { userId, isActive: true },
@@ -22,7 +22,7 @@ export class WebhookDispatcherService {
 
       if (!webhook) {
         // No active webhook for this user
-        return;
+        return true;
       }
 
       const decryptedSecret = decrypt(webhook.signingSecret);
@@ -53,11 +53,19 @@ export class WebhookDispatcherService {
         this.logger.warn(
           `Webhook delivery failed for user ${userId} (Status: ${response.status})`
         );
+        // Return true if it's a 4xx error (client error, no point retrying)
+        if (response.status >= 400 && response.status < 500) {
+          return true;
+        }
+        // Return false for 5xx errors (server error, transient)
+        return false;
       } else {
         this.logger.log(`Webhook delivered successfully for user ${userId}`);
+        return true;
       }
     } catch (error: any) {
       this.logger.error(`Webhook dispatch error for user ${userId}: ${error.message}`, error.stack);
+      return false; // Timeouts or network drops are transient
     }
   }
 }

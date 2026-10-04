@@ -12,6 +12,8 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
   private readonly dlq = "submissions.dlq";
   private readonly workerQueue = "submissions.queue";
   private readonly webhooksQueue = "core-platform.webhooks.queue";
+  private readonly webhooksWaitExchange = "webhooks.wait.exchange";
+  private readonly webhooksWaitQueue = "webhooks.wait.queue";
 
   constructor(private readonly webhookDispatcher: WebhookDispatcherService) {}
 
@@ -36,17 +38,50 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
     await this.channel.assertQueue(this.webhooksQueue, { durable: true });
     await this.channel.bindQueue(this.webhooksQueue, this.exchange, "AssessmentCompleted");
 
-    this.logger.log("RabbitMQ topology asserted (events + DLX/DLQ + Webhooks)");
+    // Webhook Wait/Retry topology
+    await this.channel.assertExchange(this.webhooksWaitExchange, "direct", { durable: true });
+    await this.channel.assertQueue(this.webhooksWaitQueue, {
+      durable: true,
+      deadLetterExchange: "", // Default exchange routes directly to queue
+      deadLetterRoutingKey: this.webhooksQueue,
+    });
+    await this.channel.bindQueue(this.webhooksWaitQueue, this.webhooksWaitExchange, "wait");
+
+    this.logger.log("RabbitMQ topology asserted (events + DLX/DLQ + Webhooks + Retry)");
 
     // Start consuming
     this.channel.consume(this.webhooksQueue, async (msg) => {
       if (!msg) return;
       try {
         const payload = JSON.parse(msg.content.toString());
+        let success = true;
+        
         if (payload.userId) {
-          await this.webhookDispatcher.dispatch(payload.userId, payload);
+          success = await this.webhookDispatcher.dispatch(payload.userId, payload);
         }
-        this.channel?.ack(msg);
+
+        if (success) {
+          this.channel?.ack(msg);
+        } else {
+          // Transient failure, apply exponential backoff
+          const headers = msg.properties.headers || {};
+          const retryCount = typeof headers["x-retry-count"] === "number" ? headers["x-retry-count"] : 0;
+          
+          if (retryCount >= 3) {
+            this.logger.warn(`Webhook permanently failed after 3 retries for user ${payload.userId}`);
+            this.channel?.ack(msg);
+          } else {
+            const delay = 5000 * Math.pow(2, retryCount);
+            this.channel?.publish(this.webhooksWaitExchange, "wait", msg.content, {
+              persistent: true,
+              contentType: "application/json",
+              expiration: delay.toString(),
+              headers: { ...headers, "x-retry-count": retryCount + 1 },
+            });
+            this.logger.log(`Scheduled webhook retry ${retryCount + 1} in ${delay}ms for user ${payload.userId}`);
+            this.channel?.ack(msg);
+          }
+        }
       } catch (err: any) {
         this.logger.error(`Error consuming AssessmentCompleted for webhooks: ${err.message}`);
         this.channel?.nack(msg, false, false);
