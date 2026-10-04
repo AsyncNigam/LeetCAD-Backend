@@ -96,7 +96,18 @@ function putToStorage(
       }
     });
 
-    xhr.addEventListener("error", () => reject(new Error("Network error during storage upload")));
+    xhr.addEventListener("error", (evt: ProgressEvent) => {
+      console.error("UPLOAD E2E FAILURE [Phase 2 – XHR PUT]:", {
+        type: evt.type,
+        loaded: evt.loaded,
+        total: evt.total,
+        targetUrl: url,
+        readyState: xhr.readyState,
+        status: xhr.status,
+        statusText: xhr.statusText,
+      });
+      reject(new Error("Network error during storage upload"));
+    });
     xhr.addEventListener("abort", () => reject(new Error("Storage upload aborted")));
 
     xhr.send(file);
@@ -198,6 +209,13 @@ export function CadUploader({ onSubmissionCreated }: CadUploaderProps) {
         setPhase("UPLOAD_SUCCESS");
         onSubmissionCreated?.(submission.id);
       } catch (err) {
+        console.error("UPLOAD E2E FAILURE:", {
+          phase,
+          error: err,
+          message: err instanceof Error ? err.message : String(err),
+          fileName: selectedFile.name,
+          fileSize: selectedFile.size,
+        });
         setError(err instanceof Error ? err.message : "Upload failed");
         setPhase("ERROR");
       }

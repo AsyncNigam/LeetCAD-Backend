@@ -12,9 +12,8 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
   private readonly workerQueue = "leetcad.assessment.queue";
 
   async onModuleInit() {
-    this.connection = await amqplib.connect(
-      "amqp://guest:guest@localhost:5672",
-    );
+    const rabbitUrl = process.env.RABBITMQ_URL || "amqp://guest:guest@localhost:5672";
+    this.connection = await amqplib.connect(rabbitUrl);
     this.channel = await this.connection.createChannel();
 
     await this.channel.assertExchange(this.dlx, "topic", { durable: true });

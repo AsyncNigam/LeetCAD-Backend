@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Req, UseGuards } from "@nestjs/common";
+import { Controller, Post, Get, Body, Param, Req, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard.js";
 import { SubmissionsService } from "./submissions.service.js";
 
@@ -24,5 +24,14 @@ export class SubmissionsController {
       req.user.userId,
       body.fileKey,
     );
+  }
+
+  @Get(":id")
+  @UseGuards(JwtAuthGuard)
+  async getSubmission(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") id: string,
+  ) {
+    return this.submissionsService.findById(id, req.user.userId);
   }
 }

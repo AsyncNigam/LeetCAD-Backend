@@ -47,4 +47,9 @@ export class SubmissionsService {
       await queryRunner.release();
     }
   }
+
+  async findById(id: string, userId: string): Promise<Submission | null> {
+    const repo = this.dataSource.getRepository(Submission);
+    return repo.findOne({ where: { id, userId } });
+  }
 }

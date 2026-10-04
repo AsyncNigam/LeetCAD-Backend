@@ -53,16 +53,13 @@ RUN groupadd --gid 1001 leetcad \
 WORKDIR /app
 
 # 2c. Copy production node_modules from builder
-COPY --from=builder /build/node_modules ./node_modules
-COPY --from=builder /build/packages/shared-types/dist ./node_modules/@leetcad/shared-types/dist
-COPY --from=builder /build/packages/shared-types/package.json ./node_modules/@leetcad/shared-types/package.json
+COPY --chown=leetcad:leetcad --from=builder /build/node_modules ./node_modules
+COPY --chown=leetcad:leetcad --from=builder /build/packages/shared-types/dist ./node_modules/@leetcad/shared-types/dist
+COPY --chown=leetcad:leetcad --from=builder /build/packages/shared-types/package.json ./node_modules/@leetcad/shared-types/package.json
 
 # 2d. Copy compiled application
-COPY --from=builder /build/apps/core-platform/dist ./dist
-COPY --from=builder /build/apps/core-platform/package.json ./package.json
-
-# 2e. Set ownership
-RUN chown -R leetcad:leetcad /app
+COPY --chown=leetcad:leetcad --from=builder /build/apps/core-platform/dist ./dist
+COPY --chown=leetcad:leetcad --from=builder /build/apps/core-platform/package.json ./package.json
 
 # 2f. Switch to non-root user
 USER leetcad

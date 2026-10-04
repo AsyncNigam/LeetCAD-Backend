@@ -89,16 +89,16 @@ RUN groupadd --gid 1001 leetcad \
 WORKDIR /app
 
 # 2f. Copy production node_modules from builder
-COPY --from=builder /build/node_modules ./node_modules
-COPY --from=builder /build/packages/shared-types/dist ./node_modules/@leetcad/shared-types/dist
-COPY --from=builder /build/packages/shared-types/package.json ./node_modules/@leetcad/shared-types/package.json
+COPY --chown=leetcad:leetcad --from=builder /build/node_modules ./node_modules
+COPY --chown=leetcad:leetcad --from=builder /build/packages/shared-types/dist ./node_modules/@leetcad/shared-types/dist
+COPY --chown=leetcad:leetcad --from=builder /build/packages/shared-types/package.json ./node_modules/@leetcad/shared-types/package.json
 
 # 2g. Copy compiled assessment-engine
-COPY --from=builder /build/apps/assessment-engine/dist ./dist
-COPY --from=builder /build/apps/assessment-engine/package.json ./package.json
+COPY --chown=leetcad:leetcad --from=builder /build/apps/assessment-engine/dist ./dist
+COPY --chown=leetcad:leetcad --from=builder /build/apps/assessment-engine/package.json ./package.json
 
 # 2h. Copy Python sandbox scripts
-COPY apps/assessment-engine/src/sandbox/ ./sandbox/
+COPY --chown=leetcad:leetcad apps/assessment-engine/src/sandbox/ ./sandbox/
 
 # 2i. Create temp directories for CAD processing
 RUN mkdir -p /tmp/leetcad-workdir && chown leetcad:leetcad /tmp/leetcad-workdir

@@ -26,7 +26,7 @@ const s3 = new S3Client({
 const S3_BUCKET = process.env.S3_BUCKET || "leetcad";
 
 import { GoogleGenAI, Type, Schema } from "@google/genai";
-const ai = new GoogleGenAI({});
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 function buildRedisUrl(): string {
   if (process.env.REDIS_URL) return process.env.REDIS_URL;
@@ -65,7 +65,7 @@ function runPython(inputPath: string, outputPath: string): Promise<{ metrics: an
     // Windows dev environment safety fallback for python binary
     const bin = process.platform === "win32" ? "python" : "python3";
     const proc = spawn(bin, [
-      join(__dirname, "../src/sandbox/analyze_cad.py"),
+      join(__dirname, "../sandbox/analyze_cad.py"),
       "--input", inputPath,
       "--output", outputPath,
     ]);
@@ -179,8 +179,7 @@ async function main(): Promise<void> {
         runResult = await runPython(inputPath, outputPath);
       } catch (pyErr) {
         console.error(`[assessment-engine] Python execution error:`, pyErr);
-        channel.nack(msg, false, false);
-        return;
+        throw pyErr; // Throw to outer catch block to trigger UI failure state
       }
 
       const { metrics } = runResult;
@@ -242,30 +241,57 @@ async function main(): Promise<void> {
             required: ["aiScore", "reportMarkdown"]
           };
 
-          // 3. Circuit Breaker & Timeout
-          const aiCall = ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: [
-              { text: metricsPrompt },
-              { inlineData: { mimeType: "image/jpeg", data: pngBase64 } }
-            ],
-            config: {
-              responseMimeType: "application/json",
-              responseSchema: responseSchema,
+
+          // 3. Circuit Breaker & Timeout with OpenRouter fallback
+          let responseText = null;
+
+          try {
+            console.log(`[assessment-engine] Trying AI model via OpenRouter...`);
+            
+            const openRouterRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+                "Content-Type": "application/json",
+                "HTTP-Referer": "http://localhost:8080",
+                "X-Title": "LeetCAD"
+              },
+              body: JSON.stringify({
+                model: process.env.OPENROUTER_MODEL || "openai/gpt-4o-mini",
+                response_format: { type: "json_object" },
+                messages: [
+                  {
+                    role: "user",
+                    content: [
+                      { type: "text", text: metricsPrompt + "\n\nProvide the response as a JSON object with 'aiScore' (number 0-40) and 'reportMarkdown' (string)." },
+                      { type: "image_url", image_url: { url: `data:image/jpeg;base64,${pngBase64}` } }
+                    ]
+                  }
+                ]
+              }),
+              signal: AbortSignal.timeout(30000)
+            });
+
+            if (openRouterRes.ok) {
+              const data = await openRouterRes.json() as any;
+              responseText = data.choices?.[0]?.message?.content;
+            } else {
+              const err = await openRouterRes.text();
+              console.warn(`[assessment-engine] OpenRouter failed: ${openRouterRes.status} - ${err}`);
             }
-          });
+          } catch (modelErr: any) {
+            console.warn(`[assessment-engine] OpenRouter fetch failed: ${modelErr.message}`);
+          }
 
-          const timeoutPromise = new Promise<never>((_, reject) => {
-            const timer = setTimeout(() => reject(new Error("Gemini timeout")), 15000);
-            aiCall.finally(() => clearTimeout(timer));
-          });
-
-          const response = await Promise.race([aiCall, timeoutPromise]);
-          if (response && response.text) {
-            const parsed = JSON.parse(response.text);
-            aiScore = typeof parsed.aiScore === "number" ? parsed.aiScore : 0;
-            aiReport = parsed.reportMarkdown || "No report generated.";
-            console.log(`[assessment-engine] AI evaluation complete: ${aiScore}/40`);
+          if (responseText) {
+            try {
+              const parsed = JSON.parse(responseText);
+              aiScore = typeof parsed.aiScore === "number" ? parsed.aiScore : 0;
+              aiReport = parsed.reportMarkdown || "No report generated.";
+              console.log(`[assessment-engine] AI evaluation complete: ${aiScore}/40`);
+            } catch (e) {
+              console.warn(`[assessment-engine] Failed to parse AI JSON response: ${responseText}`);
+            }
           }
         } catch (aiErr) {
           console.warn(`[assessment-engine] AI evaluation failed or timed out:`, aiErr);
@@ -324,13 +350,12 @@ async function main(): Promise<void> {
 
       // ── Unified State Transition ──────────────────────────────
       const updateResult = await pool.query(
-        `UPDATE submissions SET status = $1, score = $2, "aiReportId" = $3, metrics = $4, report = $5 WHERE id = $6 AND status != 'COMPLETED'`,
+        `UPDATE submissions SET status = $1, score = $2, "aiReportId" = $3, metrics = $4 WHERE id = $5 AND status != 'COMPLETED'`,
         [
           SubmissionStatus.COMPLETED,
           score,
           reportKey,
           JSON.stringify(metrics),
-          aiReport,
           payload.submissionId,
         ],
       );

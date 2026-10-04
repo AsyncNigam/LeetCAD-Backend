@@ -66,3 +66,7 @@ redis-data/
 *.gz
 *.zip
 PROJECT_ARCHITECTURE_AND_INTERVIEW_PREP.md
+
+# ── Demo CAD Files ───────────────────────────────────────────
+*.step
+*.STEP

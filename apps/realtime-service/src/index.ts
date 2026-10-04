@@ -47,13 +47,16 @@ io.use((socket, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
+    const decoded = jwt.verify(token, JWT_SECRET) as { sub?: string; userId?: string };
 
-    if (!decoded.userId) {
+    // The core-platform signs tokens with { sub: user.id }
+    const userId = decoded.sub || decoded.userId;
+
+    if (!userId) {
       return next(new Error("Authentication error: Invalid token payload"));
     }
 
-    socket.data.userId = decoded.userId;
+    socket.data.userId = userId;
     socket.data.user = decoded;
     next();
   } catch (err) {
