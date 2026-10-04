@@ -168,7 +168,7 @@ async function main(): Promise<void> {
     const inputPath = join(tmpdir(), `${jobId}-input.step`);
     const outputPath = join(tmpdir(), `${jobId}-output.png`);
 
-    console.log(`[assessment-engine] Processing job ${jobId} for submission ${payload.submissionId}`);
+
 
     let goldenFileKey: string | null = null;
     let goldenPath: string | null = null;
@@ -297,7 +297,7 @@ async function main(): Promise<void> {
           let responseText = null;
 
           try {
-            console.log(`[assessment-engine] Trying AI model via OpenRouter...`);
+
             
             const openRouterRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
               method: "POST",
@@ -328,10 +328,10 @@ async function main(): Promise<void> {
               responseText = data.choices?.[0]?.message?.content;
             } else {
               const err = await openRouterRes.text();
-              console.warn(`[assessment-engine] OpenRouter failed: ${openRouterRes.status} - ${err}`);
+
             }
           } catch (modelErr: any) {
-            console.warn(`[assessment-engine] OpenRouter fetch failed: ${modelErr.message}`);
+
           }
 
           if (responseText) {
@@ -339,13 +339,13 @@ async function main(): Promise<void> {
               const parsed = JSON.parse(responseText);
               aiScore = typeof parsed.aiScore === "number" ? parsed.aiScore : 0;
               aiReport = parsed.reportMarkdown || "No report generated.";
-              console.log(`[assessment-engine] AI evaluation complete: ${aiScore}/40`);
+
             } catch (e) {
-              console.warn(`[assessment-engine] Failed to parse AI JSON response: ${responseText}`);
+
             }
           }
         } catch (aiErr) {
-          console.warn(`[assessment-engine] AI evaluation failed or timed out:`, aiErr);
+          console.error(`[assessment-engine] AI evaluation failed or timed out:`, aiErr);
           aiScore = 0;
           aiReport = "> **System Notice:** AI evaluation timed out or is currently unavailable. Score reflects deterministic geometric metrics only.\n\n" +
             "## Metrics\n" +
@@ -393,7 +393,7 @@ async function main(): Promise<void> {
       }
 
       if (fence > 1) {
-        console.warn(`[assessment-engine] Zombie worker or duplicate delivery detected. Dropping write. submissionId=${payload.submissionId} fence=${fence}`);
+
         channel.ack(msg);
         return;
       }
@@ -412,7 +412,7 @@ async function main(): Promise<void> {
       );
 
       if (updateResult.rowCount === 0) {
-        console.warn(`[assessment-engine] Submission ${payload.submissionId} already resolved or not found. Dropping redundant write.`);
+
         channel.ack(msg);
         return;
       }
@@ -445,14 +445,7 @@ async function main(): Promise<void> {
         { persistent: true, contentType: "application/json" },
       );
 
-      console.log(`[assessment-engine] Assessment complete for ${payload.submissionId}:`, {
-        score,
-        deterministicScore,
-        aiScore,
-        reportKey,
-        renderKey,
-        fence,
-      });
+
 
       channel.ack(msg);
     } catch (error: any) {

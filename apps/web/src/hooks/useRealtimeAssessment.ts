@@ -148,12 +148,12 @@ export function useRealtimeAssessment(
     socketRef.current = socket;
 
     socket.on("connect", () => {
-      console.log("[realtime] WebSocket connected");
+
       setConnectionStatus("connected");
     });
 
     socket.on("connect_error", (err) => {
-      console.warn("[realtime] WebSocket connect error:", err.message);
+
       setConnectionStatus("error");
     });
 
@@ -162,7 +162,7 @@ export function useRealtimeAssessment(
     });
 
     socket.on("assessment.completed", (payload: AssessmentCompletedPayload) => {
-      console.log("[realtime] assessment.completed received via WS:", payload);
+
       handleAssessmentResult(payload);
     });
 

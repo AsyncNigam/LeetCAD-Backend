@@ -72,10 +72,10 @@ io.on("connection", (socket) => {
   const userId: string = socket.data.userId;
 
   socket.join(`user:${userId}`);
-  console.log(`[realtime-service] Authenticated user ${userId} connected (socket ${socket.id})`);
+
 
   socket.on("disconnect", () => {
-    console.log(`[realtime-service] Socket ${socket.id} disconnected (user: ${userId})`);
+
   });
 });
 
@@ -88,7 +88,7 @@ async function startConsumer(): Promise<{ connection: amqplib.ChannelModel; chan
   });
 
   connection.on("close", () => {
-    console.warn("[realtime-service] RabbitMQ connection closed, reconnecting in 5s...");
+
     setTimeout(() => {
       startConsumerWithRetry();
     }, 5000);
@@ -113,7 +113,7 @@ async function startConsumer(): Promise<{ connection: amqplib.ChannelModel; chan
 
       io.to(`user:${payload.userId}`).emit("assessment.completed", payload);
 
-      console.log(`[realtime-service] Notified user ${payload.userId}, leaderboard updated (score: ${payload.score})`);
+
 
       channel.ack(msg);
     } catch (error) {
