@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import { registerLoginCommand } from "./commands/login.js";
+import { registerProblemsCommand } from "./commands/problems.js";
 
 const program = new Command();
 
@@ -10,5 +11,6 @@ program
 
 // Register commands
 registerLoginCommand(program);
+registerProblemsCommand(program);
 
 program.parse(process.argv);
