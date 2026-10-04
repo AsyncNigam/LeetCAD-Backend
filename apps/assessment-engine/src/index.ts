@@ -172,15 +172,19 @@ async function main(): Promise<void> {
 
     let goldenFileKey: string | null = null;
     let goldenPath: string | null = null;
+    let targetVolume: number | null = null;
+    let tolerance: number | null = null;
 
     try {
       // 0. Fetch problem info for golden file
       const dbResult = await pool.query(
-        `SELECT p."goldenFileKey" FROM problems p JOIN submissions s ON s."problemId" = p.id WHERE s.id = $1`,
+        `SELECT p."goldenFileKey", p."targetVolume", p.tolerance FROM problems p JOIN submissions s ON s."problemId" = p.id WHERE s.id = $1`,
         [payload.submissionId]
       );
       if (dbResult.rows.length > 0) {
         goldenFileKey = dbResult.rows[0].goldenFileKey;
+        targetVolume = dbResult.rows[0].targetVolume;
+        tolerance = dbResult.rows[0].tolerance;
       }
 
       if (goldenFileKey) {
@@ -222,14 +226,24 @@ async function main(): Promise<void> {
       let deterministicScore = 0;
       let svRatio = 0;
 
-      const { volume, surfaceArea, boundingBox, centerOfMass } = metrics;
+      const { volume, surfaceArea, boundingBox, centerOfMass, variance_mm3 } = metrics;
       const isValid = boundingBox && boundingBox.length === 6 && volume > 0 && surfaceArea > 0;
 
       if (!isValid) {
         deterministicScore = 0;
+      } else if (variance_mm3 !== undefined && targetVolume !== null && tolerance !== null) {
+        svRatio = surfaceArea / volume;
+        const errorMargin = variance_mm3 / targetVolume;
+
+        if (variance_mm3 === -1 || errorMargin > tolerance) {
+          deterministicScore = 0;
+        } else {
+          // Scale 60 points linearly based on how close variance_mm3 is to 0
+          deterministicScore = (1 - (errorMargin / tolerance)) * 60;
+        }
       } else {
         svRatio = surfaceArea / volume;
-        // Grant full 60 points if geometry metrics are valid
+        // Grant full 60 points if geometry metrics are valid and no golden comparison available
         deterministicScore = 60;
       }
 
@@ -246,6 +260,9 @@ async function main(): Promise<void> {
             `- Surface Area: ${surfaceArea} square units`,
             `- Bounding Box: [${boundingBox.join(", ")}]`,
             `- Center of Mass: [${centerOfMass.join(", ")}]`,
+            variance_mm3 !== undefined && tolerance !== null
+              ? `- The boolean difference between the target model and the user model is ${variance_mm3} mm³. The allowed tolerance is ${tolerance}.`
+              : "",
             "",
             "Based on the rendered image and these metrics, perform a rigorous engineering assessment.",
             "Calculate a numerical quality score from 0 to 40 by evaluating the following criteria:",
@@ -254,8 +271,11 @@ async function main(): Promise<void> {
             "  - Symmetry and center of mass positioning (0–10 points)",
             "  - Manufacturability and wall thickness adequacy (0–10 points)",
             "",
+            variance_mm3 !== undefined && tolerance !== null
+              ? "If the boolean variance significantly exceeds the tolerance, this means the user uploaded the completely wrong part. You MUST output an aiScore of 0 and state that the geometry fails the problem constraints."
+              : "",
             "Return your response as JSON matching the requested schema."
-          ].join("\n");
+          ].filter(Boolean).join("\n");
 
           const responseSchema: Schema = {
             type: Type.OBJECT,
