@@ -7,6 +7,7 @@ import remarkGfm from "remark-gfm";
 import { CadUploader } from "../components/CadUploader";
 import { AssessmentDashboard } from "../components/AssessmentDashboard";
 import { useRealtimeAssessment } from "../hooks/useRealtimeAssessment";
+import { LiveTerminal } from "../components/LiveTerminal";
 
 type Problem = {
   id: string;
@@ -134,6 +135,7 @@ export function ProblemWorkspace() {
               problemId={problem.id} 
               onSubmissionCreated={setActiveSubmissionId} 
             />
+            <LiveTerminal submissionId={activeSubmissionId} />
           </div>
 
           <div className="flex-1 min-h-[400px] flex flex-col">
