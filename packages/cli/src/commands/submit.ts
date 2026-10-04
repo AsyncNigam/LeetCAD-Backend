@@ -61,17 +61,21 @@ export function registerSubmitCommand(program: Command) {
 
         const urlData = await urlRes.json();
         const uploadUrl = urlData.url;
+        const fields = urlData.fields;
         fileKey = urlData.fileKey;
 
         // ── Phase 2: Binary Upload ───────────────────────────────────────
         console.log("\x1b[36m[2/3] Uploading CAD geometry...\x1b[0m");
         const fileBuffer = fs.readFileSync(resolvedPath);
+        
+        const formData = new FormData();
+        Object.entries(fields).forEach(([k, v]) => formData.append(k, v as string));
+        // Must append file last
+        formData.append("file", new Blob([fileBuffer]), filename);
+
         const uploadRes = await fetch(uploadUrl, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/octet-stream",
-          },
-          body: fileBuffer,
+          method: "POST",
+          body: formData,
         });
 
         if (!uploadRes.ok) {

@@ -75,13 +75,17 @@ function validateFile(file: File): string | null {
 
 function putToStorage(
   url: string,
+  fields: Record<string, string>,
   file: File,
   onProgress: (pct: number) => void,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open("PUT", url, true);
-    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+    xhr.open("POST", url, true);
+
+    const formData = new FormData();
+    Object.entries(fields).forEach(([k, v]) => formData.append(k, v));
+    formData.append("file", file);
 
     xhr.upload.addEventListener("progress", (e) => {
       if (e.lengthComputable) {
@@ -111,7 +115,7 @@ function putToStorage(
     });
     xhr.addEventListener("abort", () => reject(new Error("Storage upload aborted")));
 
-    xhr.send(file);
+    xhr.send(formData);
   });
 }
 
@@ -187,11 +191,11 @@ export function CadUploader({ problemId, onSubmissionCreated }: CadUploaderProps
           throw new Error(body.message || `Failed to get upload URL (${presignRes.status})`);
         }
 
-        const { url: uploadUrl, fileKey } = await presignRes.json();
+        const { url: uploadUrl, fields, fileKey } = await presignRes.json();
 
-        // Step 2: Direct PUT to storage
+        // Step 2: Direct POST to storage
         setPhase("UPLOADING_TO_STORAGE");
-        await putToStorage(uploadUrl, selectedFile, setProgress);
+        await putToStorage(uploadUrl, fields, selectedFile, setProgress);
 
         // Step 3: Notify backend with problemId
         setPhase("NOTIFYING_BACKEND");

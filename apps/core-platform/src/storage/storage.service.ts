@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { S3Client } from "@aws-sdk/client-s3";
+import { createPresignedPost } from "@aws-sdk/s3-presigned-post";
 import { randomUUID } from "node:crypto";
 
 @Injectable()
@@ -33,16 +33,18 @@ export class StorageService {
   async getPresignedUploadUrl(
     userId: string,
     filename: string,
-  ): Promise<{ url: string; fileKey: string }> {
+  ): Promise<{ url: string; fields: Record<string, string>; fileKey: string }> {
     const fileKey = `${userId}/${randomUUID()}-${filename}`;
 
-    const command = new PutObjectCommand({
+    const { url, fields } = await createPresignedPost(this.publicS3, {
       Bucket: this.bucket,
       Key: fileKey,
+      Conditions: [
+        ["content-length-range", 1, 5242880], // 1 Byte to 5 MB
+      ],
+      Expires: 900, // 15 minutes
     });
 
-    const url = await getSignedUrl(this.publicS3, command, { expiresIn: 900 });
-
-    return { url, fileKey };
+    return { url, fields, fileKey };
   }
 }
