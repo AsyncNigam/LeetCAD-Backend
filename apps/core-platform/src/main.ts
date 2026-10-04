@@ -32,14 +32,14 @@ async function bootstrap() {
   });
 
   const config = new DocumentBuilder()
-    .setTitle("LeetCAD Core Platform API")
-    .setDescription("API specifications for the LeetCAD Assessment Engine")
+    .setTitle("LeetCAD Core API")
+    .setDescription("Interactive API documentation for LeetCAD.")
     .setVersion("1.0")
     .addBearerAuth()
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup("docs", app, document);
+  SwaggerModule.setup("api/docs", app, document);
 
   // Seed default problem
   const dataSource = app.get(DataSource);
