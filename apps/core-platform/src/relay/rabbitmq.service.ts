@@ -7,23 +7,24 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
   private connection: amqplib.ChannelModel | null = null;
   private channel: amqplib.Channel | null = null;
   private readonly exchange = "leetcad.events";
-  private readonly dlx = "leetcad.dlx";
-  private readonly dlq = "leetcad.dlq";
-  private readonly workerQueue = "leetcad.assessment.queue";
+  private readonly dlx = "dlx.exchange";
+  private readonly dlq = "submissions.dlq";
+  private readonly workerQueue = "submissions.queue";
 
   async onModuleInit() {
     const rabbitUrl = process.env.RABBITMQ_URL || "amqp://guest:guest@localhost:5672";
     this.connection = await amqplib.connect(rabbitUrl);
     this.channel = await this.connection.createChannel();
 
-    await this.channel.assertExchange(this.dlx, "topic", { durable: true });
+    await this.channel.assertExchange(this.dlx, "direct", { durable: true });
     await this.channel.assertQueue(this.dlq, { durable: true });
-    await this.channel.bindQueue(this.dlq, this.dlx, "#");
+    await this.channel.bindQueue(this.dlq, this.dlx, "dlq.submissions");
 
     await this.channel.assertExchange(this.exchange, "topic", { durable: true });
     await this.channel.assertQueue(this.workerQueue, {
       durable: true,
-      arguments: { "x-dead-letter-exchange": this.dlx },
+      deadLetterExchange: this.dlx,
+      deadLetterRoutingKey: "dlq.submissions",
     });
     await this.channel.bindQueue(this.workerQueue, this.exchange, "SubmissionCreated");
 

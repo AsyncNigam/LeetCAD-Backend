@@ -91,8 +91,13 @@ function runPython(inputPath: string, outputPath: string, goldenPath?: string): 
       reject(err);
     });
 
-    proc.on("close", (code) => {
+    proc.on("close", (code, signal) => {
       clearTimeout(timer);
+      if (code === 139 || signal === 'SIGSEGV' || code === 137 || signal === 'SIGKILL') {
+        const err = new Error("Catastrophic failure: The uploaded geometry caused a rendering engine crash.");
+        (err as any).isKernelPanic = true;
+        return reject(err);
+      }
       if (killed) {
         return reject(new Error("Worker timeout: CadQuery geometric analysis exceeded 30 seconds."));
       }
@@ -153,9 +158,9 @@ async function main(): Promise<void> {
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
 
-  console.log("[assessment-engine] Waiting for messages on leetcad.assessment.queue");
+  console.log("[assessment-engine] Waiting for messages on submissions.queue");
 
-  await channel.consume("leetcad.assessment.queue", async (msg) => {
+  await channel.consume("submissions.queue", async (msg) => {
     if (!msg) return;
 
     const payload: SubmissionCreatedPayload = JSON.parse(msg.content.toString());
@@ -430,18 +435,25 @@ async function main(): Promise<void> {
       });
 
       channel.ack(msg);
-    } catch (error) {
+    } catch (error: any) {
       console.error(`[assessment-engine] Job ${jobId} failed:`, error);
       // ── Graceful failure: update DB + notify frontend so UI doesn't hang ──
       try {
-        await pool.query(
-          `UPDATE submissions SET status = $1, score = 0 WHERE id = $2 AND status != 'COMPLETED'`,
-          [SubmissionStatus.FAILED, payload.submissionId],
-        );
+        if (error.isKernelPanic) {
+          await pool.query(
+            `UPDATE submissions SET status = $1, report = $2, score = 0 WHERE id = $3 AND status != 'COMPLETED'`,
+            ['FAILED_KERNEL_PANIC', 'Catastrophic failure: The uploaded geometry caused a rendering engine crash.', payload.submissionId],
+          );
+        } else {
+          await pool.query(
+            `UPDATE submissions SET status = $1, score = 0 WHERE id = $2 AND status != 'COMPLETED'`,
+            [SubmissionStatus.FAILED, payload.submissionId],
+          );
+        }
         const failPayload: AssessmentCompletedPayload = {
           submissionId: payload.submissionId,
           userId: payload.userId,
-          status: SubmissionStatus.FAILED,
+          status: error.isKernelPanic ? 'FAILED_KERNEL_PANIC' as any : SubmissionStatus.FAILED,
           score: 0,
           aiReportId: "",
           metrics: { volume: 0, surfaceArea: 0, centerOfMass: [0, 0, 0] },

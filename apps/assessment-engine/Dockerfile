@@ -121,6 +121,7 @@ trap cleanup SIGTERM SIGINT
 
 # ── Start virtual framebuffer ──────────────────────
 echo "[entrypoint] Starting Xvfb virtual display :99"
+rm -f /tmp/.X99-lock
 Xvfb :99 -screen 0 1920x1080x24 -nolisten tcp &
 XVFB_PID=$!
 export DISPLAY=:99
