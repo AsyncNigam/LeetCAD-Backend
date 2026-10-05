@@ -27,19 +27,30 @@ import { WebSocketsModule } from "./websockets/websockets.module.js";
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: "postgres" as const,
-        host: config.get<string>("DB_HOST", "localhost"),
-        port: config.get<number>("DB_PORT", 5432),
-        username: config.get<string>("DB_USER", "leetcad"),
-        password: config.get<string>("DB_PASSWORD", "leetcad_dev"),
-        database: config.get<string>("DB_NAME", "leetcad_db"),
-        ssl: config.get<string>("DB_SSL", "false") === "true"
-          ? { rejectUnauthorized: false }
-          : false,
-        entities: [Submission, Problem, OutboxEvent, User, Webhook, ApiKey],
-        synchronize: true,
-      }),
+      useFactory: (config: ConfigService) => {
+        const url = config.get<string>("DATABASE_URL");
+        return url
+          ? {
+              type: "postgres" as const,
+              url,
+              ssl: { rejectUnauthorized: false },
+              entities: [Submission, Problem, OutboxEvent, User, Webhook, ApiKey],
+              synchronize: true,
+            }
+          : {
+              type: "postgres" as const,
+              host: config.get<string>("DB_HOST", "localhost"),
+              port: config.get<number>("DB_PORT", 5432),
+              username: config.get<string>("DB_USER", "leetcad"),
+              password: config.get<string>("DB_PASSWORD", "leetcad_dev"),
+              database: config.get<string>("DB_NAME", "leetcad_db"),
+              ssl: config.get<string>("DB_SSL", "false") === "true"
+                ? { rejectUnauthorized: false }
+                : false,
+              entities: [Submission, Problem, OutboxEvent, User, Webhook, ApiKey],
+              synchronize: true,
+            };
+      },
     }),
     AuthModule,
     StorageModule,

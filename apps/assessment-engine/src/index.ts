@@ -14,16 +14,16 @@ import { SubmissionStatus } from "@leetcad/shared-types";
 import type { SubmissionCreatedPayload, AssessmentCompletedPayload } from "@leetcad/shared-types";
 
 const s3 = new S3Client({
-  endpoint: process.env.S3_ENDPOINT || "http://localhost:9000",
-  region: process.env.S3_REGION || "us-east-1",
+  endpoint: process.env.R2_ACCOUNT_ID ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com` : (process.env.S3_ENDPOINT || "http://localhost:9000"),
+  region: process.env.R2_ACCOUNT_ID ? "auto" : (process.env.S3_REGION || "us-east-1"),
   credentials: {
-    accessKeyId: process.env.S3_ACCESS_KEY || "leetcad",
-    secretAccessKey: process.env.S3_SECRET_KEY || "leetcad_dev",
+    accessKeyId: process.env.R2_ACCESS_KEY || process.env.S3_ACCESS_KEY || "leetcad",
+    secretAccessKey: process.env.R2_SECRET_KEY || process.env.S3_SECRET_KEY || "leetcad_dev",
   },
   forcePathStyle: (process.env.S3_FORCE_PATH_STYLE || "true") === "true",
 });
 
-const S3_BUCKET = process.env.S3_BUCKET || "leetcad";
+const S3_BUCKET = process.env.R2_BUCKET_NAME || process.env.S3_BUCKET || "leetcad";
 
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -40,13 +40,17 @@ function buildRedisUrl(): string {
 
 const redis = new Redis(buildRedisUrl());
 
-const pool = new pg.Pool({
-  host: process.env.DB_HOST || "localhost",
-  port: parseInt(process.env.DB_PORT || "5432", 10),
-  user: process.env.DB_USER || "leetcad",
-  password: process.env.DB_PASSWORD || "leetcad_dev",
-  database: process.env.DB_NAME || "leetcad_db",
-});
+const pool = new pg.Pool(
+  process.env.DATABASE_URL
+    ? { connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } }
+    : {
+        host: process.env.DB_HOST || "localhost",
+        port: parseInt(process.env.DB_PORT || "5432", 10),
+        user: process.env.DB_USER || "leetcad",
+        password: process.env.DB_PASSWORD || "leetcad_dev",
+        database: process.env.DB_NAME || "leetcad_db",
+      }
+);
 
 async function cleanupFile(filePath: string): Promise<void> {
   try {

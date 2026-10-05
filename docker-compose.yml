@@ -45,13 +45,9 @@ services:
       - .env
     environment:
       NODE_ENV: production
-      DB_HOST: postgres
-      DB_PORT: 5432
       REDIS_HOST: redis
       REDIS_PORT: 6379
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
-      S3_ENDPOINT: http://minio:9000
-      PUBLIC_S3_ENDPOINT: http://localhost:9000
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -105,12 +101,9 @@ services:
       - .env
     environment:
       NODE_ENV: production
-      DB_HOST: postgres
-      DB_PORT: 5432
       REDIS_HOST: redis
       REDIS_PORT: 6379
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
-      S3_ENDPOINT: http://minio:9000
     depends_on:
       redis:
         condition: service_healthy
