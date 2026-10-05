@@ -15,7 +15,9 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
           script: |
+            set -e
             cd /home/azureuser/leetcad
             git pull origin main
             docker compose up -d --build
