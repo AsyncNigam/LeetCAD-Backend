@@ -18,6 +18,6 @@ jobs:
           port: ${{ secrets.SSH_PORT || 22 }}
           script: |
             set -e
-            cd /home/azureuser/leetcad
+            cd /home/azureuser/LeetCAD-Backend
             git pull origin main
             docker compose up -d --build
