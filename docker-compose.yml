@@ -1,22 +1,4 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: leetcad-postgres
-    restart: unless-stopped
-    ports:
-      - "5434:5432"
-    environment:
-      POSTGRES_USER: leetcad
-      POSTGRES_PASSWORD: leetcad_dev
-      POSTGRES_DB: leetcad_db
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U leetcad -d leetcad_db"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   redis:
     image: redis:7-alpine
     container_name: leetcad-redis
@@ -49,41 +31,6 @@ services:
       timeout: 10s
       retries: 5
 
-  minio:
-    image: minio/minio
-    container_name: leetcad-minio
-    restart: unless-stopped
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    environment:
-      MINIO_ROOT_USER: leetcad
-      MINIO_ROOT_PASSWORD: leetcad_dev
-      MINIO_API_CORS_ALLOW_ORIGIN: "http://localhost:8080,http://127.0.0.1:8080"
-    volumes:
-      - minio_data:/data
-    command: server /data --console-address ":9001"
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 15s
-      timeout: 10s
-      retries: 5
-
-  minio-setup:
-    image: minio/minio
-    container_name: leetcad-minio-setup
-    depends_on:
-      minio:
-        condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-      mc alias set myminio http://minio:9000 leetcad leetcad_dev;
-      mc mb myminio/leetcad || true;
-      mc mb myminio/leetcad-uploads || true;
-      mc anonymous set public myminio/leetcad-uploads || true;
-      exit 0;
-      "
-
   # ── Application Services ─────────────────────────
 
   core-platform:
@@ -106,11 +53,7 @@ services:
       S3_ENDPOINT: http://minio:9000
       PUBLIC_S3_ENDPOINT: http://localhost:9000
     depends_on:
-      postgres:
-        condition: service_healthy
       rabbitmq:
-        condition: service_healthy
-      minio:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api"]
@@ -169,13 +112,9 @@ services:
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
       S3_ENDPOINT: http://minio:9000
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
       rabbitmq:
-        condition: service_healthy
-      minio:
         condition: service_healthy
     tmpfs:
       - /tmp/leetcad-workdir:size=512M
@@ -187,7 +126,5 @@ services:
           memory: 512M
 
 volumes:
-  postgres_data:
   redis_data:
   rabbitmq_data:
-  minio_data:
