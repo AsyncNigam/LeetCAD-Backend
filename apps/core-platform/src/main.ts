@@ -18,7 +18,10 @@ async function bootstrap() {
   );
 
   app.setGlobalPrefix("api");
-  await app.register(helmet);
+  await app.register(helmet, {
+    contentSecurityPolicy: false,
+    crossOriginOpenerPolicy: false,
+  });
   
   const allowedOrigins = process.env.FRONTEND_URL 
     ? process.env.FRONTEND_URL.split(',') 
