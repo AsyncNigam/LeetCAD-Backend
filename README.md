@@ -151,6 +151,8 @@ flowchart LR
 
 ## 🗄 Database Schema
 
+
+
 ### `users`
 
 | Column | Type | Constraints | Description |
