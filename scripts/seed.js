@@ -20,51 +20,57 @@ async function runSeed() {
     await client.connect();
     console.log("✅ Successfully connected to Neon DB");
 
-    // 1. Create the problems table if it doesn't exist (just in case migrations haven't run)
-    // But typically TypeORM sync handles this. We'll just run the insert.
-    const query = `
-      INSERT INTO problems (
-        id, 
-        title, 
-        description, 
-        difficulty, 
-        "goldenFileKey", 
-        "targetVolume", 
-        tolerance,
-        "createdAt",
-        "updatedAt"
-      )
-      VALUES (
-        gen_random_uuid(), 
-        $1, 
-        $2, 
-        $3, 
-        $4, 
-        $5, 
-        $6,
-        NOW(),
-        NOW()
-      )
-      ON CONFLICT (title) DO NOTHING
-      RETURNING id;
-    `;
+    const title = 'Calibration Cube (20mm)';
 
-    const values = [
-      'Calibration Cube (20mm)',
-      'A standard 20mm x 20mm x 20mm calibration cube to test foundational XYZ dimensions.',
-      'EASY', // Mapped from BEGINNER to match ProblemDifficulty enum
-      'problems/cube.step', // target geometry reference path
-      8000.0, // 20x20x20
-      0.1     // 0.1mm tolerance
-    ];
-
-    console.log("Inserting sample problem...");
-    const res = await client.query(query, values);
-    
-    if (res.rowCount > 0) {
-      console.log(`✅ Successfully seeded problem! ID: ${res.rows[0].id}`);
+    // 1. Check if problem already exists
+    const checkRes = await client.query('SELECT id FROM problems WHERE title = $1', [title]);
+    if (checkRes.rowCount > 0) {
+      console.log(`⚠️ Problem already exists (ID: ${checkRes.rows[0].id}). Skipping...`);
     } else {
-      console.log("⚠️ Problem already exists or no rows inserted.");
+      // 2. Insert problem
+      const query = `
+        INSERT INTO problems (
+          id, 
+          title, 
+          description, 
+          difficulty, 
+          "goldenFileKey", 
+          "targetVolume", 
+          tolerance,
+          "createdAt",
+          "updatedAt"
+        )
+        VALUES (
+          gen_random_uuid(), 
+          $1, 
+          $2, 
+          $3, 
+          $4, 
+          $5, 
+          $6,
+          NOW(),
+          NOW()
+        )
+        RETURNING id;
+      `;
+
+      const values = [
+        title,
+        'A standard 20mm x 20mm x 20mm calibration cube to test foundational XYZ dimensions.',
+        'EASY', // Mapped from BEGINNER to match ProblemDifficulty enum
+        'problems/cube.step', // target geometry reference path
+        8000.0, // 20x20x20
+        0.1     // 0.1mm tolerance
+      ];
+
+      console.log("Inserting sample problem...");
+      const res = await client.query(query, values);
+      
+      if (res.rowCount > 0) {
+        console.log(`✅ Successfully seeded problem! ID: ${res.rows[0].id}`);
+      } else {
+        console.log("⚠️ No rows inserted.");
+      }
     }
     
   } catch (err) {
