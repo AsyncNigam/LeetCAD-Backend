@@ -27,7 +27,7 @@ export class SubmissionsService {
         submissionId: savedSubmission.id,
         userId,
         fileKey,
-        bucketName: "leetcad-uploads",
+        bucketName: process.env.R2_BUCKET_NAME || "leetcad-storage",
       };
 
       const outboxEvent = queryRunner.manager.create(OutboxEvent, {
