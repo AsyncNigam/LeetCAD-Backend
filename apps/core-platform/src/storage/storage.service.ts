@@ -7,7 +7,7 @@ import { randomUUID } from "node:crypto";
 export class StorageService implements OnModuleInit {
   /** S3 client used for generating browser-facing presigned URLs */
   private readonly publicS3: S3Client;
-  private readonly bucket = "leetcad-uploads";
+  private readonly bucket = process.env.R2_BUCKET_NAME || "leetcad-storage";
   private readonly logger = new Logger(StorageService.name);
 
   constructor() {
