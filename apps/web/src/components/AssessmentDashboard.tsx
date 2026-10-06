@@ -334,7 +334,7 @@ export function AssessmentDashboard({ phase, assessment, submissionId }: Assessm
                 <MetricCard
                   icon={Target}
                   label="Center of Mass"
-                  value={assessment.metrics.centerOfMass.map((v) => v.toFixed(1)).join(", ")}
+                  value={assessment.metrics.centerOfMass.map((v: any) => v.toFixed(1)).join(", ")}
                 />
                 <MetricCard
                   icon={Maximize2}
