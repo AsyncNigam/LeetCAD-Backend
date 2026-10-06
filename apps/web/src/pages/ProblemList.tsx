@@ -12,6 +12,8 @@ type Problem = {
   tolerance: number;
 };
 
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
+
 export function ProblemList() {
   const [problems, setProblems] = useState<Problem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,7 +21,7 @@ export function ProblemList() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetch("/api/problems", {
+    fetch(`${API_BASE}/problems`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(r => r.json())

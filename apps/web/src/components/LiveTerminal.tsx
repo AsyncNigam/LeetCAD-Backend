@@ -14,7 +14,7 @@ interface TerminalLog {
   score?: number;
 }
 
-const SOCKET_URL = import.meta.env.VITE_CORE_API_URL || "http://localhost:3000";
+const SOCKET_URL = import.meta.env.VITE_WS_URL || "https://leetcad.me";
 
 export function LiveTerminal({ submissionId }: LiveTerminalProps) {
   const [logs, setLogs] = useState<TerminalLog[]>([]);

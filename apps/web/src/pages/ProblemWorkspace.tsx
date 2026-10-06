@@ -18,6 +18,8 @@ type Problem = {
   tolerance: number;
 };
 
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
+
 export function ProblemWorkspace() {
   const { id } = useParams<{ id: string }>();
   const [problem, setProblem] = useState<Problem | null>(null);
@@ -35,7 +37,7 @@ export function ProblemWorkspace() {
   useEffect(() => {
     if (!id) return;
     setLoading(true);
-    fetch(`/api/problems/${id}`, {
+    fetch(`${API_BASE}/problems/${id}`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(r => {

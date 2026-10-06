@@ -33,6 +33,9 @@ interface CadUploaderProps {
 
 // ── Constants ───────────────────────────────────────────────
 
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
+
+
 const ALLOWED_EXTENSIONS = [".step", ".stp", ".stl"];
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 
@@ -170,7 +173,7 @@ export function CadUploader({ problemId, onSubmissionCreated }: CadUploaderProps
       try {
         // Step 1: Request presigned URL
         setPhase("REQUESTING_URL");
-        const presignRes = await fetch("/api/storage/presigned-url", {
+        const presignRes = await fetch(`${API_BASE}/storage/presigned-url`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -199,7 +202,7 @@ export function CadUploader({ problemId, onSubmissionCreated }: CadUploaderProps
 
         // Step 3: Notify backend with problemId
         setPhase("NOTIFYING_BACKEND");
-        const completeRes = await fetch("/api/submissions/complete", {
+        const completeRes = await fetch(`${API_BASE}/submissions/complete`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

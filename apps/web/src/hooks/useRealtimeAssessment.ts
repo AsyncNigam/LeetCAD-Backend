@@ -28,7 +28,8 @@ export interface RealtimeState {
 
 // ── Hook ────────────────────────────────────────────────────
 
-const REALTIME_URL = import.meta.env.VITE_REALTIME_URL || "http://localhost:3001";
+const REALTIME_URL = import.meta.env.VITE_WS_URL || "https://leetcad.me";
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
 const POLL_INTERVAL_MS = 3000; // Poll every 3 seconds as fallback
 
 export function useRealtimeAssessment(
@@ -84,7 +85,7 @@ export function useRealtimeAssessment(
 
     const poll = async () => {
       try {
-        const res = await fetch(`/api/submissions/${activeSubmissionId}`, {
+        const res = await fetch(`${API_BASE}/submissions/${activeSubmissionId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) return;
