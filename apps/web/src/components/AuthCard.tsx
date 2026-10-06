@@ -1,19 +1,20 @@
-import { useState } from "react";
-import { Loader2, LogIn, Terminal, Zap } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Loader2, LogIn } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 export function AuthCard() {
-  const { loginWithDevMode, loginWithGoogle, isLoading } = useAuth();
+  const { isLoading, loginWithGoogle } = useAuth();
   const [error, setError] = useState<string | null>(null);
 
-  const handleDevLogin = async () => {
-    setError(null);
-    try {
-      await loginWithDevMode();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Dev login failed");
+  useEffect(() => {
+    if (!document.querySelector('script[src="https://accounts.google.com/gsi/client"]')) {
+      const script = document.createElement("script");
+      script.src = "https://accounts.google.com/gsi/client";
+      script.async = true;
+      script.defer = true;
+      document.body.appendChild(script);
     }
-  };
+  }, []);
 
   const handleGoogleLogin = async () => {
     setError(null);
@@ -22,9 +23,17 @@ export function AuthCard() {
       | undefined;
 
     if (google?.accounts?.id) {
+      google.accounts.id.initialize({
+        client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "mock_google_id",
+        callback: (response: any) => {
+          loginWithGoogle(response.credential).catch(err => {
+            setError(err instanceof Error ? err.message : "Google login failed");
+          });
+        }
+      });
       google.accounts.id.prompt();
     } else {
-      setError("Google Sign-In requires a GOOGLE_CLIENT_ID. Use Dev Mode for local testing.");
+      setError("Google Sign-In is loading or blocked by your browser. Please try again.");
     }
   };
 
@@ -88,43 +97,7 @@ export function AuthCard() {
             <LogIn className="h-4 w-4 text-text-faint shrink-0" />
           </button>
 
-          {/* ── Or Divider ────────────────────── */}
-          <div className="relative my-5">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-border" />
-            </div>
-            <div className="relative flex justify-center">
-              <span className="px-3 bg-surface text-text-faint text-xs uppercase tracking-wider">
-                or
-              </span>
-            </div>
-          </div>
 
-          {/* ── Dev Bypass Button ─────────────── */}
-          <button
-            id="dev-login-btn"
-            onClick={handleDevLogin}
-            disabled={isLoading}
-            className="w-full flex items-center justify-center gap-2.5 px-4 py-3 rounded-lg
-              bg-brand-forest text-white hover:bg-brand-forest-hover
-              transition-colors duration-150 font-medium text-sm
-              disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Terminal className="h-4 w-4" />
-            )}
-            Quick Reviewer Bypass (Dev Mode)
-          </button>
-
-          {/* Dev mode subtext */}
-          <div className="flex justify-center pt-1">
-            <span className="inline-flex items-center gap-1.5 text-[10px] font-mono bg-brand-mint text-brand-mint-dark px-2 py-0.5 rounded-sm">
-              <Zap className="h-2.5 w-2.5" />
-              No GCP setup required
-            </span>
-          </div>
         </div>
       </div>
     </div>

@@ -30,7 +30,7 @@ export interface AuthContextType {
 
 const TOKEN_KEY = "leetcad_token";
 const USER_KEY = "leetcad_user";
-const API_BASE = "/api";
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 // ── JWT Helpers ─────────────────────────────────────────────
 
