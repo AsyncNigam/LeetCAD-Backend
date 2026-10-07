@@ -193,18 +193,28 @@ async function main(): Promise<void> {
 
       if (goldenFileKey) {
         goldenPath = join(tmpdir(), `${jobId}-golden.step`);
-        const getGolden = await s3.send(new GetObjectCommand({
-          Bucket: S3_BUCKET,
-          Key: goldenFileKey,
-        }));
-        if (getGolden.Body) {
-          await pipeline(getGolden.Body as Readable, createWriteStream(goldenPath));
+        try {
+          const getGolden = await s3.send(new GetObjectCommand({
+            Bucket: S3_BUCKET,
+            Key: goldenFileKey,
+          }));
+          if (getGolden.Body) {
+            await pipeline(getGolden.Body as Readable, createWriteStream(goldenPath));
+          }
+        } catch (e: any) {
+          throw new Error(`Failed to fetch golden file from R2 (Key: ${goldenFileKey}): ${e.message}`);
         }
       }
-      const getObject = await s3.send(new GetObjectCommand({
-        Bucket: payload.bucketName,
-        Key: payload.fileKey,
-      }));
+      
+      let getObject;
+      try {
+        getObject = await s3.send(new GetObjectCommand({
+          Bucket: payload.bucketName,
+          Key: payload.fileKey,
+        }));
+      } catch (e: any) {
+        throw new Error(`Failed to fetch user submission file from R2 (Key: ${payload.fileKey}): ${e.message}`);
+      }
 
       if (!getObject.Body) {
         throw new Error(`Empty response body for key ${payload.fileKey}`);
