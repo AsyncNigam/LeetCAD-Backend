@@ -84,11 +84,8 @@ function putToStorage(
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", url, true);
-
-    const formData = new FormData();
-    Object.entries(fields).forEach(([k, v]) => formData.append(k, v));
-    formData.append("file", file);
+    xhr.open("PUT", url, true);
+    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
 
     xhr.upload.addEventListener("progress", (e) => {
       if (e.lengthComputable) {
@@ -118,7 +115,7 @@ function putToStorage(
     });
     xhr.addEventListener("abort", () => reject(new Error("Storage upload aborted")));
 
-    xhr.send(formData);
+    xhr.send(file);
   });
 }
 
