@@ -388,7 +388,7 @@ async function main(): Promise<void> {
       }));
 
       await s3.send(new PutObjectCommand({
-        Bucket: "leetcad",
+        Bucket: S3_BUCKET,
         Key: renderKey,
         Body: pngBuffer,
         ContentType: "image/png",
