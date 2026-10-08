@@ -341,11 +341,13 @@ async function main(): Promise<void> {
               const data = await openRouterRes.json() as any;
               responseText = data.choices?.[0]?.message?.content;
             } else {
-              const err = await openRouterRes.text();
-
+              const errText = await openRouterRes.text();
+              console.error(`[assessment-engine] OpenRouter API error: ${openRouterRes.status} ${openRouterRes.statusText}`, errText);
+              throw new Error(`OpenRouter API failed: ${openRouterRes.status}`);
             }
           } catch (modelErr: any) {
-
+            console.error(`[assessment-engine] Model fetch caught error:`, modelErr);
+            throw modelErr;
           }
 
           if (responseText) {
@@ -390,7 +392,7 @@ async function main(): Promise<void> {
       await s3.send(new PutObjectCommand({
         Bucket: S3_BUCKET,
         Key: renderKey,
-        Body: pngBuffer,
+        Body: new Uint8Array(pngBuffer),
         ContentType: "image/png",
       }));
 
