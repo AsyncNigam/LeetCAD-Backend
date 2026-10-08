@@ -69,8 +69,8 @@ export function useRealtimeAssessment(
 
       // Simulate processing phase after a brief delay (the real event
       // would come from the backend; this provides immediate visual feedback)
-      const t1 = setTimeout(() => setPhase("PROCESSING"), 1500);
-      const t2 = setTimeout(() => setPhase("EVALUATING"), 8000);
+      const t1 = setTimeout(() => setPhase(p => p === "UPLOADED" ? "PROCESSING" : p), 1500);
+      const t2 = setTimeout(() => setPhase(p => p === "PROCESSING" ? "EVALUATING" : p), 8000);
       return () => {
         clearTimeout(t1);
         clearTimeout(t2);

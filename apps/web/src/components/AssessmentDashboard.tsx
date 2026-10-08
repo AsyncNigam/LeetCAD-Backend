@@ -22,6 +22,9 @@ const S3_ENDPOINT = import.meta.env.VITE_S3_ENDPOINT || "http://localhost:9000";
 const S3_BUCKET = import.meta.env.VITE_S3_BUCKET || "leetcad";
 
 function s3Url(key: string): string {
+  if (S3_ENDPOINT.includes("r2.dev")) {
+    return `${S3_ENDPOINT}/${key}`;
+  }
   return `${S3_ENDPOINT}/${S3_BUCKET}/${key}`;
 }
 
