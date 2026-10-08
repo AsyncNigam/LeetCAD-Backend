@@ -307,46 +307,30 @@ async function main(): Promise<void> {
           };
 
 
-          // 3. Circuit Breaker & Timeout with OpenRouter fallback
+          // 3. Evaluate using Gemini
           let responseText = null;
 
           try {
-
-            
-            const openRouterRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-              method: "POST",
-              headers: {
-                "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
-                "Content-Type": "application/json",
-                "HTTP-Referer": "http://localhost:8080",
-                "X-Title": "LeetCAD"
-              },
-              body: JSON.stringify({
-                model: process.env.OPENROUTER_MODEL || "openai/gpt-4o-mini",
-                response_format: { type: "json_object" },
-                messages: [
-                  {
-                    role: "user",
-                    content: [
-                      { type: "text", text: metricsPrompt + "\n\nProvide the response as a JSON object with 'aiScore' (number 0-40) and 'reportMarkdown' (string)." },
-                      { type: "image_url", image_url: { url: `data:image/jpeg;base64,${pngBase64}` } }
-                    ]
+            const result = await ai.models.generateContent({
+              model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+              contents: [
+                metricsPrompt + "\n\nProvide the response as a JSON object with 'aiScore' (number 0-40) and 'reportMarkdown' (string).",
+                {
+                  inlineData: {
+                    mimeType: "image/png",
+                    data: pngBase64,
                   }
-                ]
-              }),
-              signal: AbortSignal.timeout(30000)
+                }
+              ],
+              config: {
+                responseMimeType: "application/json",
+                responseSchema: responseSchema,
+              }
             });
 
-            if (openRouterRes.ok) {
-              const data = await openRouterRes.json() as any;
-              responseText = data.choices?.[0]?.message?.content;
-            } else {
-              const errText = await openRouterRes.text();
-              console.error(`[assessment-engine] OpenRouter API error: ${openRouterRes.status} ${openRouterRes.statusText}`, errText);
-              throw new Error(`OpenRouter API failed: ${openRouterRes.status}`);
-            }
+            responseText = result.text;
           } catch (modelErr: any) {
-            console.error(`[assessment-engine] Model fetch caught error:`, modelErr);
+            console.error(`[assessment-engine] Gemini API caught error:`, modelErr);
             throw modelErr;
           }
 
@@ -355,9 +339,8 @@ async function main(): Promise<void> {
               const parsed = JSON.parse(responseText);
               aiScore = typeof parsed.aiScore === "number" ? parsed.aiScore : 0;
               aiReport = parsed.reportMarkdown || "No report generated.";
-
             } catch (e) {
-
+              console.error("[assessment-engine] Failed to parse Gemini JSON:", e);
             }
           }
         } catch (aiErr) {
