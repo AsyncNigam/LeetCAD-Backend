@@ -320,26 +320,43 @@ async function main(): Promise<void> {
           let responseText = null;
 
           try {
-            console.log(`[assessment-engine] [${jobId}] Calling Gemini API (model: ${process.env.GEMINI_MODEL || "gemini-1.5-flash"})...`);
-            const result = await ai.models.generateContent({
-              model: process.env.GEMINI_MODEL || "gemini-1.5-flash",
-              contents: [
-                metricsPrompt + "\n\nProvide the response as a JSON object with 'aiScore' (number 0-40) and 'reportMarkdown' (string).",
-                {
-                  inlineData: {
-                    mimeType: "image/png",
-                    data: pngBase64,
-                  }
-                }
-              ],
-              config: {
-                responseMimeType: "application/json",
-                responseSchema: responseSchema,
-              }
-            });
+            const maxRetries = 3;
+            let result;
+            const modelName = process.env.GEMINI_MODEL || "gemini-3.8-flash";
 
-            console.log(`[assessment-engine] [${jobId}] Gemini API returned successfully.`);
-            responseText = result.text;
+            for (let attempt = 1; attempt <= maxRetries; attempt++) {
+              try {
+                console.log(`[assessment-engine] [${jobId}] Calling Gemini API (model: ${modelName}, attempt: ${attempt})...`);
+                result = await ai.models.generateContent({
+                  model: modelName,
+                  contents: [
+                    metricsPrompt + "\n\nProvide the response as a JSON object with 'aiScore' (number 0-40) and 'reportMarkdown' (string).",
+                    {
+                      inlineData: {
+                        mimeType: "image/png",
+                        data: pngBase64,
+                      }
+                    }
+                  ],
+                  config: {
+                    responseMimeType: "application/json",
+                    responseSchema: responseSchema,
+                  }
+                });
+                console.log(`[assessment-engine] [${jobId}] Gemini API returned successfully on attempt ${attempt}.`);
+                break; // Success, exit retry loop
+              } catch (attemptErr: any) {
+                if (attemptErr.status === 503 && attempt < maxRetries) {
+                  const delayMs = attempt * 2000;
+                  console.warn(`[assessment-engine] [${jobId}] Gemini API 503 Unavailable on attempt ${attempt}. Retrying in ${delayMs}ms...`);
+                  await new Promise(r => setTimeout(r, delayMs));
+                } else {
+                  throw attemptErr; // Rethrow if not 503 or max retries reached
+                }
+              }
+            }
+
+            responseText = result?.text;
           } catch (modelErr: any) {
             console.error(`[assessment-engine] [${jobId}] Gemini API caught error:`, modelErr);
             throw modelErr;
