@@ -312,7 +312,7 @@ async function main(): Promise<void> {
 
           try {
             const result = await ai.models.generateContent({
-              model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+              model: process.env.GEMINI_MODEL || "gemini-2.0-flash",
               contents: [
                 metricsPrompt + "\n\nProvide the response as a JSON object with 'aiScore' (number 0-40) and 'reportMarkdown' (string).",
                 {
@@ -337,7 +337,8 @@ async function main(): Promise<void> {
           if (responseText) {
             try {
               const parsed = JSON.parse(responseText);
-              aiScore = typeof parsed.aiScore === "number" ? parsed.aiScore : 0;
+              aiScore = parsed.aiScore ? Number(parsed.aiScore) : 0;
+              if (isNaN(aiScore)) aiScore = 0;
               aiReport = parsed.reportMarkdown || "No report generated.";
             } catch (e) {
               console.error("[assessment-engine] Failed to parse Gemini JSON:", e);
@@ -368,7 +369,7 @@ async function main(): Promise<void> {
       await s3.send(new PutObjectCommand({
         Bucket: S3_BUCKET,
         Key: reportKey,
-        Body: aiReport,
+        Body: new TextEncoder().encode(aiReport),
         ContentType: "text/markdown",
       }));
 
