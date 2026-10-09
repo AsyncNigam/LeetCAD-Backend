@@ -4,7 +4,7 @@ import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { OAuth2Client } from "google-auth-library";
-import { User } from "../entities/User.js";
+import { User, UserRole } from "../entities/User.js";
 
 @Injectable()
 export class AuthService {
@@ -42,26 +42,47 @@ export class AuthService {
     }
   }
 
-  async googleLogin(token: string): Promise<{ accessToken: string; user: { id: string; email: string; name: string } }> {
+  /**
+   * Determine the role for a user based on their email.
+   * If the email matches OWNER_EMAIL env var, elevate to OWNER.
+   */
+  private resolveRole(email: string, currentRole?: UserRole): UserRole {
+    const ownerEmail = this.configService.get<string>("OWNER_EMAIL");
+    if (ownerEmail && email.toLowerCase() === ownerEmail.toLowerCase()) {
+      return UserRole.OWNER;
+    }
+    // Preserve existing role if already set (e.g., ADMIN promoted via DB)
+    return currentRole || UserRole.USER;
+  }
+
+  async googleLogin(token: string): Promise<{ accessToken: string; user: { id: string; email: string; name: string; role: UserRole } }> {
     const { email, googleId, name } = await this.verifyGoogleToken(token);
 
     let user = await this.userRepository.findOne({ where: { googleId } });
 
     if (!user) {
-      user = this.userRepository.create({ email, googleId, name });
+      // New user registration
+      const role = this.resolveRole(email);
+      user = this.userRepository.create({ email, googleId, name, role });
       user = await this.userRepository.save(user);
     } else {
+      // Existing user login — update profile and re-check OWNER status
       user.email = email;
       user.name = name;
+      user.role = this.resolveRole(email, user.role);
       user = await this.userRepository.save(user);
     }
 
-    const accessToken = this.jwtService.sign({ sub: user.id, email: user.email });
+    const accessToken = this.jwtService.sign({
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    });
 
-    return { accessToken, user: { id: user.id, email: user.email, name: user.name } };
+    return { accessToken, user: { id: user.id, email: user.email, name: user.name, role: user.role } };
   }
 
-  async devLogin(): Promise<{ accessToken: string; user: { id: string; email: string; name: string } }> {
+  async devLogin(): Promise<{ accessToken: string; user: { id: string; email: string; name: string; role: UserRole } }> {
     const devGoogleId = "dev-reviewer-id";
     const devEmail = "reviewer@leetcad.internal";
     const devName = "CAD Reviewer (Dev)";
@@ -69,12 +90,20 @@ export class AuthService {
     let user = await this.userRepository.findOne({ where: { googleId: devGoogleId } });
 
     if (!user) {
-      user = this.userRepository.create({ email: devEmail, googleId: devGoogleId, name: devName });
+      const role = this.resolveRole(devEmail);
+      user = this.userRepository.create({ email: devEmail, googleId: devGoogleId, name: devName, role });
+      user = await this.userRepository.save(user);
+    } else {
+      user.role = this.resolveRole(devEmail, user.role);
       user = await this.userRepository.save(user);
     }
 
-    const accessToken = this.jwtService.sign({ sub: user.id, email: user.email });
+    const accessToken = this.jwtService.sign({
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    });
 
-    return { accessToken, user: { id: user.id, email: user.email, name: user.name } };
+    return { accessToken, user: { id: user.id, email: user.email, name: user.name, role: user.role } };
   }
 }

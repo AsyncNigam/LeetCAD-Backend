@@ -18,6 +18,7 @@ import { Webhook } from "./webhooks/webhook.entity.js";
 import { ApiKey } from "./api-keys/api-key.entity.js";
 import { ApiKeysModule } from "./api-keys/api-keys.module.js";
 import { WebSocketsModule } from "./websockets/websockets.module.js";
+import { AdminModule } from "./admin/admin.module.js";
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { WebSocketsModule } from "./websockets/websockets.module.js";
     WebhooksModule,
     ApiKeysModule,
     WebSocketsModule,
+    AdminModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

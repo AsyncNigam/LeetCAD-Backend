@@ -11,6 +11,7 @@ import { ApiKeysModule } from "../api-keys/api-keys.module.js";
 import { ApiKeyGuard } from "./api-key.guard.js";
 import { JwtAuthGuard } from "./jwt-auth.guard.js";
 import { HybridAuthGuard } from "./hybrid-auth.guard.js";
+import { RolesGuard } from "./roles.guard.js";
 
 @Global()
 @Module({
@@ -28,7 +29,7 @@ import { HybridAuthGuard } from "./hybrid-auth.guard.js";
     }),
   ],
   controllers: [AuthController],
-  providers: [JwtStrategy, AuthService, ApiKeyGuard, JwtAuthGuard, HybridAuthGuard],
-  exports: [JwtModule, ApiKeyGuard, JwtAuthGuard, HybridAuthGuard],
+  providers: [JwtStrategy, AuthService, ApiKeyGuard, JwtAuthGuard, HybridAuthGuard, RolesGuard],
+  exports: [JwtModule, ApiKeyGuard, JwtAuthGuard, HybridAuthGuard, RolesGuard],
 })
 export class AuthModule {}
