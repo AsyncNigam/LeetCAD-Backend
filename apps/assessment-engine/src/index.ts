@@ -181,6 +181,7 @@ async function main(): Promise<void> {
     let tolerance: number | null = null;
 
     try {
+      console.log(`[assessment-engine] [${jobId}] Started processing submission ${payload.submissionId}`);
       // 0. Fetch problem info for golden file
       const dbResult = await pool.query(
         `SELECT p."goldenFileKey", p."targetVolume", p.tolerance FROM problems p JOIN submissions s ON s."problemId" = p.id WHERE s.id = $1`,
@@ -191,10 +192,12 @@ async function main(): Promise<void> {
         targetVolume = dbResult.rows[0].targetVolume;
         tolerance = dbResult.rows[0].tolerance;
       }
+      console.log(`[assessment-engine] [${jobId}] Fetched problem info, goldenFileKey=${goldenFileKey}`);
 
       if (goldenFileKey) {
         goldenPath = join(tmpdir(), `${jobId}-golden.step`);
         try {
+          console.log(`[assessment-engine] [${jobId}] Fetching golden file from S3...`);
           const getGolden = await s3.send(new GetObjectCommand({
             Bucket: S3_BUCKET,
             Key: goldenFileKey,
@@ -202,6 +205,7 @@ async function main(): Promise<void> {
           if (getGolden.Body) {
             await pipeline(getGolden.Body as Readable, createWriteStream(goldenPath));
           }
+          console.log(`[assessment-engine] [${jobId}] Golden file fetched.`);
         } catch (e: any) {
           throw new Error(`Failed to fetch golden file from R2 (Key: ${goldenFileKey}): ${e.message}`);
         }
@@ -209,6 +213,7 @@ async function main(): Promise<void> {
       
       let getObject;
       try {
+        console.log(`[assessment-engine] [${jobId}] Fetching user submission from S3...`);
         getObject = await s3.send(new GetObjectCommand({
           Bucket: payload.bucketName,
           Key: payload.fileKey,
@@ -223,12 +228,15 @@ async function main(): Promise<void> {
 
       const bodyStream = getObject.Body as Readable;
       await pipeline(bodyStream, createWriteStream(inputPath));
+      console.log(`[assessment-engine] [${jobId}] User submission fetched.`);
 
       let runResult;
       try {
+        console.log(`[assessment-engine] [${jobId}] Starting python geometry analysis...`);
         runResult = await runPython(inputPath, outputPath, goldenPath || undefined);
+        console.log(`[assessment-engine] [${jobId}] Python geometry analysis finished.`);
       } catch (pyErr) {
-        console.error(`[assessment-engine] Python execution error:`, pyErr);
+        console.error(`[assessment-engine] [${jobId}] Python execution error:`, pyErr);
         throw pyErr; // Throw to outer catch block to trigger UI failure state
       }
 
@@ -312,6 +320,7 @@ async function main(): Promise<void> {
           let responseText = null;
 
           try {
+            console.log(`[assessment-engine] [${jobId}] Calling Gemini API (model: ${process.env.GEMINI_MODEL || "gemini-3.8-flash"})...`);
             const result = await ai.models.generateContent({
               model: process.env.GEMINI_MODEL || "gemini-3.8-flash",
               contents: [
@@ -329,9 +338,10 @@ async function main(): Promise<void> {
               }
             });
 
+            console.log(`[assessment-engine] [${jobId}] Gemini API returned successfully.`);
             responseText = result.text;
           } catch (modelErr: any) {
-            console.error(`[assessment-engine] Gemini API caught error:`, modelErr);
+            console.error(`[assessment-engine] [${jobId}] Gemini API caught error:`, modelErr);
             throw modelErr;
           }
 
@@ -341,12 +351,13 @@ async function main(): Promise<void> {
               aiScore = parsed.aiScore ? Number(parsed.aiScore) : 0;
               if (isNaN(aiScore)) aiScore = 0;
               aiReport = parsed.reportMarkdown || "No report generated.";
+              console.log(`[assessment-engine] [${jobId}] Parsed Gemini JSON, aiScore=${aiScore}`);
             } catch (e) {
-              console.error("[assessment-engine] Failed to parse Gemini JSON:", e);
+              console.error(`[assessment-engine] [${jobId}] Failed to parse Gemini JSON:`, e);
             }
           }
         } catch (aiErr) {
-          console.error(`[assessment-engine] AI evaluation failed or timed out:`, aiErr);
+          console.error(`[assessment-engine] [${jobId}] AI evaluation failed or timed out:`, aiErr);
           aiScore = 0;
           aiReport = "> **System Notice:** AI evaluation timed out or is currently unavailable. Score reflects deterministic geometric metrics only.\n\n" +
             "## Metrics\n" +
