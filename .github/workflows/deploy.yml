@@ -16,12 +16,8 @@ jobs:
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
-          envs: GH_PAT
           script: |
             set -e
             cd /home/azureuser/LeetCAD-Backend
-            git remote set-url origin https://$GH_PAT@github.com/AsyncNigam/LeetCAD-Backend.git
             git pull origin main
             docker compose up -d --build
-        env:
-          GH_PAT: ${{ secrets.GH_PAT }}
