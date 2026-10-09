@@ -21,3 +21,10 @@ jobs:
             cd /home/azureuser/LeetCAD-Backend
             git pull origin main
             docker compose up -d --build
+            
+            # Update Nginx config and reload if we have permissions
+            if [ -d "/etc/nginx/sites-available" ]; then
+              sudo cp infrastructure/nginx/leetcad.conf /etc/nginx/sites-available/leetcad.conf || true
+              sudo systemctl reload nginx || true
+            fi
+
