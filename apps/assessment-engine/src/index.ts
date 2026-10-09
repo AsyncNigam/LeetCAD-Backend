@@ -312,7 +312,7 @@ async function main(): Promise<void> {
 
           try {
             const result = await ai.models.generateContent({
-              model: process.env.GEMINI_MODEL || "gemini-2.0-flash",
+              model: process.env.GEMINI_MODEL || "gemini-3.8-flash",
               contents: [
                 metricsPrompt + "\n\nProvide the response as a JSON object with 'aiScore' (number 0-40) and 'reportMarkdown' (string).",
                 {
