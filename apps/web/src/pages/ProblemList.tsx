@@ -14,6 +14,14 @@ type Problem = {
 
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
+/** Convert a problem title to a URL-friendly slug */
+function slugify(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 export function ProblemList() {
   const [problems, setProblems] = useState<Problem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,7 +68,7 @@ export function ProblemList() {
           {problems.map((problem) => (
             <div
               key={problem.id}
-              onClick={() => navigate(`/problems/${problem.id}`)}
+              onClick={() => navigate(`/problems/${slugify(problem.title)}`)}
               className="panel-hover p-5 cursor-pointer group flex flex-col"
             >
               <div className="flex justify-between items-start mb-3">

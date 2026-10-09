@@ -20,8 +20,16 @@ type Problem = {
 
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
+/** Convert a problem title to a URL-friendly slug */
+function slugify(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 export function ProblemWorkspace() {
-  const { id } = useParams<{ id: string }>();
+  const { slug } = useParams<{ slug: string }>();
   const [problem, setProblem] = useState<Problem | null>(null);
   const [loading, setLoading] = useState(true);
   const { token } = useAuth();
@@ -35,11 +43,23 @@ export function ProblemWorkspace() {
   } = useRealtimeAssessment(token, activeSubmissionId);
 
   useEffect(() => {
-    if (!id) return;
+    if (!slug) return;
     setLoading(true);
-    fetch(`${API_BASE}/problems/${id}`, {
+
+    // Fetch all problems, match slug to title, then fetch detail by UUID
+    fetch(`${API_BASE}/problems`, {
       headers: { Authorization: `Bearer ${token}` }
     })
+      .then(r => r.json())
+      .then((problems: Problem[]) => {
+        const matched = problems.find(p => slugify(p.title) === slug);
+        if (!matched) {
+          throw new Error("Problem not found for slug: " + slug);
+        }
+        return fetch(`${API_BASE}/problems/${matched.id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      })
       .then(r => {
         if (!r.ok) throw new Error("Not found");
         return r.json();
@@ -52,7 +72,7 @@ export function ProblemWorkspace() {
         console.error("Failed to fetch problem", err);
         navigate("/problems");
       });
-  }, [id, token, navigate]);
+  }, [slug, token, navigate]);
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {

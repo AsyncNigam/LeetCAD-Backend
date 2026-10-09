@@ -27,7 +27,7 @@ function AppContent() {
           <Routes>
             <Route path="/" element={<Navigate to="/problems" replace />} />
             <Route path="/problems" element={<ProblemList />} />
-            <Route path="/problems/:id" element={<ProblemWorkspace />} />
+            <Route path="/problems/:slug" element={<ProblemWorkspace />} />
             <Route path="*" element={<Navigate to="/problems" replace />} />
           </Routes>
         )}
