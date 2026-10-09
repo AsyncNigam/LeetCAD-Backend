@@ -18,11 +18,7 @@ async function bootstrap() {
   );
 
   app.setGlobalPrefix("api");
-  await app.register(helmet, {
-    contentSecurityPolicy: false,
-    crossOriginOpenerPolicy: false,
-  });
-  
+
   const envOrigins = process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',') : [];
   const allowedOrigins = [
     'http://localhost:5173', 
@@ -30,16 +26,25 @@ async function bootstrap() {
     'http://localhost:5174', 
     'http://127.0.0.1:5174',
     'https://app.leetcad.me',
+    'https://leetcad.me',
     'https://leetcad-backend.pages.dev',
     /^https:\/\/.*\.leetcad-backend\.pages\.dev$/,
     ...envOrigins
   ];
 
+  // CORS must be registered BEFORE helmet to ensure preflight OPTIONS
+  // responses include Access-Control-Allow-Origin headers
   app.enableCors({ 
     origin: allowedOrigins,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
     credentials: true,
+  });
+
+  await app.register(helmet, {
+    contentSecurityPolicy: false,
+    crossOriginOpenerPolicy: false,
+    crossOriginResourcePolicy: false,
   });
 
   const config = new DocumentBuilder()
