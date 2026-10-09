@@ -148,6 +148,7 @@ async function main(): Promise<void> {
     console.error("[assessment-engine] RabbitMQ channel error:", err.message);
   });
 
+  await channel.assertExchange("leetcad.events", "topic", { durable: true });
   await channel.prefetch(1);
 
   const shutdown = async () => {
