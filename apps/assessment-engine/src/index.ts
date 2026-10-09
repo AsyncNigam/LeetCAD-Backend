@@ -320,9 +320,9 @@ async function main(): Promise<void> {
           let responseText = null;
 
           try {
-            console.log(`[assessment-engine] [${jobId}] Calling Gemini API (model: ${process.env.GEMINI_MODEL || "gemini-3.8-flash"})...`);
+            console.log(`[assessment-engine] [${jobId}] Calling Gemini API (model: ${process.env.GEMINI_MODEL || "gemini-1.5-flash"})...`);
             const result = await ai.models.generateContent({
-              model: process.env.GEMINI_MODEL || "gemini-3.8-flash",
+              model: process.env.GEMINI_MODEL || "gemini-1.5-flash",
               contents: [
                 metricsPrompt + "\n\nProvide the response as a JSON object with 'aiScore' (number 0-40) and 'reportMarkdown' (string).",
                 {
