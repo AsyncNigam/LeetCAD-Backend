@@ -163,6 +163,47 @@ async function main(): Promise<void> {
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
 
+  // ── Discover available Gemini models at startup ──────────────
+  const MODEL_CANDIDATES = [
+    process.env.GEMINI_MODEL,          // user override first
+    "gemini-2.5-flash",
+    "gemini-2.5-pro",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-3.8-flash",
+    "gemini-1.5-flash",
+    "gemini-1.5-pro",
+  ].filter(Boolean) as string[];
+
+  let resolvedModel: string | null = null;
+
+  try {
+    console.log("[assessment-engine] Discovering available Gemini models...");
+    const pager = await ai.models.list();
+    const available: string[] = [];
+    for await (const m of pager) {
+      if (m.name) {
+        available.push(m.name.replace("models/", ""));
+      }
+    }
+    console.log(`[assessment-engine] Available models: ${available.join(", ")}`);
+
+    // Pick first candidate that exists in the available list
+    for (const candidate of MODEL_CANDIDATES) {
+      if (available.some(a => a === candidate || a.startsWith(candidate))) {
+        resolvedModel = candidate;
+        break;
+      }
+    }
+    if (!resolvedModel && available.length > 0) {
+      // Pick any flash model from available
+      resolvedModel = available.find(a => a.includes("flash")) || available[0];
+    }
+    console.log(`[assessment-engine] Selected model: ${resolvedModel}`);
+  } catch (listErr) {
+    console.warn("[assessment-engine] Could not list models, will try candidates at runtime:", (listErr as Error).message);
+  }
+
   console.log("[assessment-engine] Waiting for messages on submissions.queue");
 
   await channel.consume("submissions.queue", async (msg) => {
@@ -316,49 +357,68 @@ async function main(): Promise<void> {
           };
 
 
-          // 3. Evaluate using Gemini
+          // 3. Evaluate using Gemini with multi-model fallback
           let responseText = null;
 
           try {
-            const maxRetries = 3;
-            let result;
-            const modelName = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+            // Build ordered model list: resolved model first, then all candidates
+            const modelsToTry = resolvedModel
+              ? [resolvedModel, ...MODEL_CANDIDATES.filter(m => m !== resolvedModel)]
+              : MODEL_CANDIDATES;
 
-            for (let attempt = 1; attempt <= maxRetries; attempt++) {
-              try {
-                console.log(`[assessment-engine] [${jobId}] Calling Gemini API (model: ${modelName}, attempt: ${attempt})...`);
-                result = await ai.models.generateContent({
-                  model: modelName,
-                  contents: [
-                    metricsPrompt + "\n\nProvide the response as a JSON object with 'aiScore' (number 0-40) and 'reportMarkdown' (string).",
-                    {
-                      inlineData: {
-                        mimeType: "image/png",
-                        data: pngBase64,
+            let lastError: any = null;
+
+            for (const modelName of modelsToTry) {
+              const maxRetries = 5;
+              let succeeded = false;
+
+              for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                try {
+                  console.log(`[assessment-engine] [${jobId}] Calling Gemini API (model: ${modelName}, attempt: ${attempt}/${maxRetries})...`);
+                  const result = await ai.models.generateContent({
+                    model: modelName,
+                    contents: [
+                      metricsPrompt + "\n\nProvide the response as a JSON object with 'aiScore' (number 0-40) and 'reportMarkdown' (string).",
+                      {
+                        inlineData: {
+                          mimeType: "image/png",
+                          data: pngBase64,
+                        }
                       }
+                    ],
+                    config: {
+                      responseMimeType: "application/json",
+                      responseSchema: responseSchema,
                     }
-                  ],
-                  config: {
-                    responseMimeType: "application/json",
-                    responseSchema: responseSchema,
+                  });
+                  console.log(`[assessment-engine] [${jobId}] Gemini API returned successfully (model: ${modelName}, attempt: ${attempt}).`);
+                  responseText = result.text;
+                  succeeded = true;
+                  break; // Success, exit retry loop
+                } catch (attemptErr: any) {
+                  lastError = attemptErr;
+                  if (attemptErr.status === 503 && attempt < maxRetries) {
+                    const delayMs = attempt * 3000; // 3s, 6s, 9s, 12s
+                    console.warn(`[assessment-engine] [${jobId}] Model ${modelName} returned 503 on attempt ${attempt}. Retrying in ${delayMs}ms...`);
+                    await new Promise(r => setTimeout(r, delayMs));
+                  } else if (attemptErr.status === 404) {
+                    console.warn(`[assessment-engine] [${jobId}] Model ${modelName} returned 404 (not found). Trying next model...`);
+                    break; // Skip to next model
+                  } else {
+                    console.warn(`[assessment-engine] [${jobId}] Model ${modelName} failed on attempt ${attempt} with status ${attemptErr.status}. Trying next model...`);
+                    break; // Skip to next model
                   }
-                });
-                console.log(`[assessment-engine] [${jobId}] Gemini API returned successfully on attempt ${attempt}.`);
-                break; // Success, exit retry loop
-              } catch (attemptErr: any) {
-                if (attemptErr.status === 503 && attempt < maxRetries) {
-                  const delayMs = attempt * 2000;
-                  console.warn(`[assessment-engine] [${jobId}] Gemini API 503 Unavailable on attempt ${attempt}. Retrying in ${delayMs}ms...`);
-                  await new Promise(r => setTimeout(r, delayMs));
-                } else {
-                  throw attemptErr; // Rethrow if not 503 or max retries reached
                 }
               }
+
+              if (succeeded) break; // Exit model loop
             }
 
-            responseText = result?.text;
+            if (!responseText && lastError) {
+              throw lastError;
+            }
           } catch (modelErr: any) {
-            console.error(`[assessment-engine] [${jobId}] Gemini API caught error:`, modelErr);
+            console.error(`[assessment-engine] [${jobId}] All Gemini models failed:`, modelErr);
             throw modelErr;
           }
 
