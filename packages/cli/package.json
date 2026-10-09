@@ -1,15 +1,43 @@
 {
-  "name": "@leetcad/cli",
+  "name": "leetcad",
   "version": "1.0.0",
-  "description": "LeetCAD Command Line Interface",
+  "description": "LeetCAD CLI — Submit, evaluate, and benchmark CAD models from the terminal",
   "type": "module",
+  "license": "MIT",
+  "author": "AsyncNigam",
+  "homepage": "https://github.com/AsyncNigam/LeetCAD-Backend#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AsyncNigam/LeetCAD-Backend.git",
+    "directory": "packages/cli"
+  },
+  "keywords": [
+    "cad",
+    "leetcad",
+    "cli",
+    "engineering",
+    "assessment",
+    "3d-modeling"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
   "bin": {
     "leetcad": "./bin/leetcad.js"
+  },
+  "files": [
+    "bin/",
+    "dist/",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "clean": "rm -rf dist"
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "prepublishOnly": "npm run clean && npm run build"
   },
   "dependencies": {
     "commander": "^12.0.0",
