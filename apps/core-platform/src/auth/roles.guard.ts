@@ -1,17 +1,10 @@
 import { CanActivate, ExecutionContext, Injectable, ForbiddenException } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
 import { ROLES_KEY } from "./roles.decorator.js";
-import { User } from "../entities/User.js";
 
 @Injectable()
 export class RolesGuard implements CanActivate {
-  constructor(
-    private readonly reflector: Reflector,
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
-  ) {}
+  constructor(private readonly reflector: Reflector) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // Get required roles from @Roles() decorator metadata
@@ -32,21 +25,20 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException("Authentication required");
     }
 
-    // Fetch the full user from DB to get their current role
-    const user = await this.userRepository.findOne({ where: { id: jwtUser.userId } });
+    const userRole = jwtUser.role;
 
-    if (!user) {
-      throw new ForbiddenException("User not found");
+    if (!userRole) {
+      throw new ForbiddenException("Role not found in token");
     }
 
     // OWNER role has implicit access to everything
-    if (user.role === "OWNER") {
+    if (userRole === "OWNER") {
       return true;
     }
 
-    if (!requiredRoles.includes(user.role)) {
+    if (!requiredRoles.includes(userRole)) {
       throw new ForbiddenException(
-        `Access denied. Required role: ${requiredRoles.join(" or ")}. Your role: ${user.role}.`,
+        `Access denied. Required role: ${requiredRoles.join(" or ")}. Your role: ${userRole}.`,
       );
     }
 
