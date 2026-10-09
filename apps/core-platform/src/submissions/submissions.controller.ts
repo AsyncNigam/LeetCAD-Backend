@@ -30,6 +30,22 @@ export class SubmissionsController {
     );
   }
 
+  @Get("mine")
+  @UseGuards(HybridAuthGuard)
+  async getMySubmissions(@Req() req: AuthenticatedRequest) {
+    const submissions = await this.submissionsService.findByUser(req.user.userId);
+    return submissions.map((s) => ({
+      id: s.id,
+      problemId: s.problemId,
+      problemTitle: s.problem?.title || "Unknown",
+      problemDifficulty: s.problem?.difficulty || "MEDIUM",
+      status: s.status,
+      score: s.score,
+      metrics: s.metrics,
+      createdAt: s.createdAt,
+    }));
+  }
+
   @Get(":id")
   @UseGuards(HybridAuthGuard)
   async getSubmission(

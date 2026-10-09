@@ -6,6 +6,8 @@ import { ProblemList } from "./pages/ProblemList";
 import { ProblemWorkspace } from "./pages/ProblemWorkspace";
 import { useRealtimeAssessment } from "./hooks/useRealtimeAssessment";
 import { AdminDashboard } from "./pages/AdminDashboard";
+import { SubmissionsHistory } from "./pages/SubmissionsHistory";
+import { Leaderboard } from "./pages/Leaderboard";
 
 function AppContent() {
   const { isAuthenticated, token } = useAuth();
@@ -30,6 +32,8 @@ function AppContent() {
             <Route path="/problems" element={<ProblemList />} />
             <Route path="/problems/:slug" element={<ProblemWorkspace />} />
             <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/submissions" element={<SubmissionsHistory />} />
+            <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="*" element={<Navigate to="/problems" replace />} />
           </Routes>
         )}

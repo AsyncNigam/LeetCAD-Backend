@@ -69,24 +69,49 @@ export function Navbar({ connectionStatus }: NavbarProps) {
   return (
     <header className="sticky top-0 z-50 bg-surface border-b border-border">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-        {/* ── Brand ──────────────────────────── */}
-        <div className="flex items-center gap-3">
-          <h1
-            className="text-lg font-bold tracking-tight text-brand-forest cursor-pointer"
-            onClick={() => navigate("/problems")}
-          >
-            LeetCAD
-          </h1>
-          <span className="hidden sm:inline-flex text-[10px] font-mono text-text-faint border border-border rounded px-1.5 py-0.5 uppercase tracking-widest">
-            v0.9-alpha / CAD Engine
-          </span>
+        {/* ── Brand & Main Links ──────────────────────────── */}
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3">
+            <h1
+              className="text-lg font-bold tracking-tight text-brand-forest cursor-pointer"
+              onClick={() => navigate("/problems")}
+            >
+              LeetCAD
+            </h1>
+            <span className="hidden sm:inline-flex text-[10px] font-mono text-text-faint border border-border rounded px-1.5 py-0.5 uppercase tracking-widest">
+              v0.9-alpha
+            </span>
+          </div>
+          
+          {isAuthenticated && (
+            <nav className="hidden sm:flex items-center gap-4 text-sm font-medium">
+              <button
+                onClick={() => navigate("/problems")}
+                className={`transition-colors ${location.pathname === "/problems" ? "text-brand-forest" : "text-text-muted hover:text-text-primary"}`}
+              >
+                Challenges
+              </button>
+              <button
+                onClick={() => navigate("/leaderboard")}
+                className={`transition-colors ${location.pathname === "/leaderboard" ? "text-brand-forest" : "text-text-muted hover:text-text-primary"}`}
+              >
+                Leaderboard
+              </button>
+              <button
+                onClick={() => navigate("/submissions")}
+                className={`transition-colors ${location.pathname === "/submissions" ? "text-brand-forest" : "text-text-muted hover:text-text-primary"}`}
+              >
+                Submissions
+              </button>
+            </nav>
+          )}
         </div>
 
         {/* ── Right Section ─────────────────── */}
         <div className="flex items-center gap-5">
           {isAuthenticated && isAdmin && (
             <button
-              onClick={() => navigate(isOnAdmin ? "/problems" : "/admin")}
+              onClick={() => navigate("/admin")}
               className={`flex items-center gap-1.5 text-xs font-semibold tracking-wide uppercase transition-colors ${
                 isOnAdmin
                   ? "text-brand-forest"
@@ -94,7 +119,7 @@ export function Navbar({ connectionStatus }: NavbarProps) {
               }`}
             >
               <Shield className="h-3.5 w-3.5" />
-              {isOnAdmin ? "Challenges" : "Admin"}
+              Admin
             </button>
           )}
           <StatusIndicator status={connectionStatus} />

@@ -53,4 +53,53 @@ export class SubmissionsService {
     const repo = this.dataSource.getRepository(Submission);
     return repo.findOne({ where: { id, userId } });
   }
+
+  /**
+   * Get all submissions for a specific user, ordered by most recent first.
+   * Includes the related problem info.
+   */
+  async findByUser(userId: string): Promise<Submission[]> {
+    const repo = this.dataSource.getRepository(Submission);
+    return repo.find({
+      where: { userId },
+      relations: { problem: true },
+      order: { createdAt: "DESC" },
+    });
+  }
+
+  /**
+   * Get leaderboard: top users ranked by their best score across all problems.
+   * Returns aggregated stats per user.
+   */
+  async getLeaderboard(): Promise<
+    Array<{
+      userId: string;
+      userName: string;
+      totalSolved: number;
+      bestAvgScore: number;
+      totalSubmissions: number;
+    }>
+  > {
+    const result = await this.dataSource.query(`
+      SELECT
+        s."userId",
+        u."name" AS "userName",
+        COUNT(DISTINCT CASE WHEN s."status" = 'COMPLETED' AND s."score" >= 60 THEN s."problemId" END)::int AS "totalSolved",
+        ROUND(COALESCE(AVG(CASE WHEN s."status" = 'COMPLETED' THEN s."score" END), 0)::numeric, 1) AS "bestAvgScore",
+        COUNT(s."id")::int AS "totalSubmissions"
+      FROM submissions s
+      JOIN users u ON u."id" = s."userId"
+      GROUP BY s."userId", u."name"
+      ORDER BY "totalSolved" DESC, "bestAvgScore" DESC
+      LIMIT 100
+    `);
+
+    return result.map((row: any) => ({
+      userId: row.userId,
+      userName: row.userName,
+      totalSolved: row.totalSolved,
+      bestAvgScore: parseFloat(row.bestAvgScore),
+      totalSubmissions: row.totalSubmissions,
+    }));
+  }
 }

@@ -19,6 +19,7 @@ import { ApiKey } from "./api-keys/api-key.entity.js";
 import { ApiKeysModule } from "./api-keys/api-keys.module.js";
 import { WebSocketsModule } from "./websockets/websockets.module.js";
 import { AdminModule } from "./admin/admin.module.js";
+import { LeaderboardModule } from "./leaderboard/leaderboard.module.js";
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { AdminModule } from "./admin/admin.module.js";
     ApiKeysModule,
     WebSocketsModule,
     AdminModule,
+    LeaderboardModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
