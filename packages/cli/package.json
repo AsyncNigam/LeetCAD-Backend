@@ -1,5 +1,5 @@
 {
-  "name": "leetcad",
+  "name": "@nigam_developer/leetcad",
   "version": "1.0.0",
   "description": "LeetCAD CLI — Submit, evaluate, and benchmark CAD models from the terminal",
   "type": "module",

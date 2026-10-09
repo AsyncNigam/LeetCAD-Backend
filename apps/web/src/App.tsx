@@ -5,6 +5,7 @@ import { AuthCard } from "./components/AuthCard";
 import { ProblemList } from "./pages/ProblemList";
 import { ProblemWorkspace } from "./pages/ProblemWorkspace";
 import { useRealtimeAssessment } from "./hooks/useRealtimeAssessment";
+import { AdminDashboard } from "./pages/AdminDashboard";
 
 function AppContent() {
   const { isAuthenticated, token } = useAuth();
@@ -28,6 +29,7 @@ function AppContent() {
             <Route path="/" element={<Navigate to="/problems" replace />} />
             <Route path="/problems" element={<ProblemList />} />
             <Route path="/problems/:slug" element={<ProblemWorkspace />} />
+            <Route path="/admin" element={<AdminDashboard />} />
             <Route path="*" element={<Navigate to="/problems" replace />} />
           </Routes>
         )}

@@ -60,4 +60,22 @@ export class StorageService implements OnModuleInit {
 
     return { url, fields: {}, fileKey };
   }
+
+  /**
+   * Generate a presigned PUT URL for a specific key path (e.g., golden files).
+   * Used by admin endpoints where the key is pre-determined.
+   */
+  async getPresignedUploadUrlForKey(
+    fileKey: string,
+  ): Promise<{ url: string; fileKey: string }> {
+    const command = new PutObjectCommand({
+      Bucket: this.bucket,
+      Key: fileKey,
+      ContentType: "application/octet-stream",
+    });
+
+    const url = await getSignedUrl(this.publicS3, command, { expiresIn: 900 });
+
+    return { url, fileKey };
+  }
 }
