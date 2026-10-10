@@ -300,10 +300,10 @@ export function CadUploader({ problemId, onSubmissionCreated }: CadUploaderProps
             className={`relative flex flex-col items-center justify-center w-full h-full p-8
               border-dashed border-2 rounded-xl transition-colors cursor-pointer
               ${dropzoneDisabled
-                ? "border-border/50 bg-canvas opacity-50 cursor-not-allowed"
+                ? "border-border/50 bg-surface opacity-50 cursor-not-allowed"
                 : isDragOver
                   ? "border-brand-forest bg-brand-mint/30"
-                  : "border-border bg-canvas hover:border-border-strong drafting-grid"
+                  : "border-border bg-surface hover:border-border-strong drafting-grid"
               }`}
           >
             <input
@@ -362,7 +362,7 @@ export function CadUploader({ problemId, onSubmissionCreated }: CadUploaderProps
 
       {/* ── PROCESSING: Upload Progress ─────────────── */}
       {isProcessing && (
-        <div className="p-6 bg-canvas border border-border rounded-xl space-y-6 animate-fade-in">
+        <div className="panel p-6 space-y-6 animate-fade-in">
           {/* File info */}
           {file && (
             <div className="flex items-center gap-3 p-4 rounded-lg bg-surface-subtle border border-border">
@@ -436,7 +436,7 @@ export function CadUploader({ problemId, onSubmissionCreated }: CadUploaderProps
 
       {/* ── SUCCESS: Submission Created ─────────────── */}
       {phase === "UPLOAD_SUCCESS" && result && (
-        <div className="p-8 bg-canvas border border-border rounded-xl space-y-6 animate-fade-in flex flex-col justify-center">
+        <div className="panel p-8 space-y-6 animate-fade-in flex flex-col justify-center">
           <div className="flex flex-col items-center gap-4 py-4">
             <div className="rounded-full p-4 bg-brand-mint/20 border border-brand-mint">
               <CheckCircle2 className="h-6 w-6 text-brand-mint-dark" />

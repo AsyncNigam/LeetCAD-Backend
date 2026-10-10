@@ -5,35 +5,35 @@ export default {
     extend: {
       colors: {
         /* ── Canvas & Surface ─────────────────────── */
-        canvas: "#F9F6F0",
+        canvas: "#F4EFE6", // Warm beige background
         surface: {
-          DEFAULT: "#FFFFFF",
-          subtle: "#F2F9F4", // Very slight light green
+          DEFAULT: "#FFFFFF", // Pure white for distinct boxes
+          subtle: "#FAFAFA",
         },
 
-        /* ── Borders (drafting grid feel) ─────────── */
+        /* ── Borders ─────────────────────────── */
         border: {
-          DEFAULT: "#E4DDD3",
-          strong: "#C8BEAF",
+          DEFAULT: "#E5DCD0",
+          strong: "#D4C5B0",
         },
 
         /* ── Text hierarchy ───────────────────────── */
         text: {
-          primary: "#1A1D1A",
-          muted: "#686E67",
-          faint: "#9DA39C",
+          primary: "#1E293B", // Slate-800 for stark contrast
+          muted: "#475569", // Slate-600
+          faint: "#94A3B8", // Slate-400
         },
 
         /* ── Brand: Forest Slate & Mint ───────────── */
         brand: {
-          forest: "#143823",
-          "forest-hover": "#0E2718",
-          mint: "#E2F1E4",
-          "mint-dark": "#255E38",
+          forest: "#115E59", // Deep teal/forest
+          "forest-hover": "#134E4A",
+          mint: "#CCFBF1", // Teal-50
+          "mint-dark": "#0F766E", // Teal-600
         },
 
         /* ── CAD Viewport ─────────────────────────── */
-        "cad-viewport": "#121312",
+        "cad-viewport": "#F8FAFC",
       },
 
       fontFamily: {

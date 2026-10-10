@@ -254,21 +254,21 @@ export function AdminDashboard() {
         </div>
       ) : stats ? (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          <div className="p-5 bg-canvas border border-border rounded-xl">
+          <div className="panel p-5">
             <div className="flex items-center gap-2 text-text-muted mb-2">
               <Users className="h-4 w-4" />
               <span className="text-xs font-medium tracking-wide">Total Users</span>
             </div>
             <p className="text-2xl font-mono font-bold text-text-primary">{stats.totalUsers}</p>
           </div>
-          <div className="p-5 bg-canvas border border-border rounded-xl">
+          <div className="panel p-5">
             <div className="flex items-center gap-2 text-text-muted mb-2">
               <BarChart3 className="h-4 w-4" />
               <span className="text-xs font-medium tracking-wide">Total Submissions</span>
             </div>
             <p className="text-2xl font-mono font-bold text-text-primary">{stats.totalSubmissions}</p>
           </div>
-          <div className="p-5 bg-canvas border border-border rounded-xl">
+          <div className="panel p-5">
             <div className="flex items-center gap-2 text-text-muted mb-2">
               <FileCode className="h-4 w-4" />
               <span className="text-xs font-medium tracking-wide">Total Problems</span>
@@ -280,7 +280,7 @@ export function AdminDashboard() {
 
       {/* ── Create Problem Form ────────────────────────── */}
       {showForm && (
-        <div className="mb-8 p-6 bg-canvas border border-border rounded-xl animate-fade-in">
+        <div className="panel mb-8 p-6 animate-fade-in">
           <h2 className="text-lg font-bold text-text-primary mb-6 flex items-center gap-2">
             <Plus className="h-4 w-4 text-brand-forest" />
             {editProblemId ? "Edit Problem" : "Create New Problem"}
@@ -440,7 +440,7 @@ export function AdminDashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* ── Users Table ────────────────────────────────── */}
-        <div className="p-6 bg-canvas border border-border rounded-xl h-fit">
+        <div className="panel h-fit p-6">
         <h2 className="text-lg font-bold text-text-primary mb-4 flex items-center gap-2">
           <Users className="h-4 w-4 text-brand-forest" />
           Registered Users
@@ -498,7 +498,7 @@ export function AdminDashboard() {
       </div>
 
       {/* ── Problems Table ─────────────────────────────── */}
-      <div className="p-6 bg-canvas border border-border rounded-xl h-fit">
+      <div className="panel h-fit p-6">
         <h2 className="text-lg font-bold text-text-primary mb-4 flex items-center gap-2">
           <FileCode className="h-4 w-4 text-brand-forest" />
           Manage Problems

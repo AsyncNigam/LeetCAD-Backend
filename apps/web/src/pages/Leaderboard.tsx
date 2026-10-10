@@ -81,14 +81,14 @@ export function Leaderboard() {
           <Loader2 className="h-6 w-6 text-brand-mint animate-spin" />
         </div>
       ) : leaderboard.length === 0 ? (
-        <div className="text-center py-16 bg-canvas border border-border rounded-xl">
+        <div className="panel text-center py-16">
           <Trophy className="h-10 w-10 text-text-faint mx-auto mb-4" />
           <p className="text-text-muted text-sm">
             No rankings yet. Be the first to solve a challenge!
           </p>
         </div>
       ) : (
-        <div className="bg-canvas border border-border rounded-xl overflow-hidden shadow-sm">
+        <div className="panel overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
