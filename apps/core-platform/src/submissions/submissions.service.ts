@@ -88,7 +88,7 @@ export class SubmissionsService {
         ROUND(COALESCE(AVG(CASE WHEN s."status" = 'COMPLETED' THEN s."score" END), 0)::numeric, 1) AS "bestAvgScore",
         COUNT(s."id")::int AS "totalSubmissions"
       FROM submissions s
-      JOIN users u ON u."id" = s."userId"
+      JOIN users u ON u."id" = s."userId"::uuid
       GROUP BY s."userId", u."name"
       ORDER BY "totalSolved" DESC, "bestAvgScore" DESC
       LIMIT 100
