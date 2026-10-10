@@ -48,15 +48,25 @@ export class AuthService {
    */
   private resolveRole(email: string, currentRole?: UserRole): UserRole {
     let ownerEmail = this.configService.get<string>("OWNER_EMAIL");
+    
+    // Debug logging to help identify configuration issues on the VM
+    console.log(`[AuthService] resolveRole called for email: '${email}', currentRole: '${currentRole}'`);
+    console.log(`[AuthService] configService.get('OWNER_EMAIL') returned: '${ownerEmail}'`);
+
     if (ownerEmail) {
       // Clean up quotes and whitespace that might come from .env parsing
       ownerEmail = ownerEmail.replace(/['"]+/g, '').trim().toLowerCase();
+      console.log(`[AuthService] Parsed ownerEmail: '${ownerEmail}'`);
+      
       if (email.trim().toLowerCase() === ownerEmail) {
+        console.log(`[AuthService] Match found! Elevating user to OWNER.`);
         return UserRole.OWNER;
       }
     }
     // Preserve existing role if already set (e.g., ADMIN promoted via DB)
-    return currentRole || UserRole.USER;
+    const finalRole = currentRole || UserRole.USER;
+    console.log(`[AuthService] No match. Returning role: '${finalRole}'`);
+    return finalRole;
   }
 
   async googleLogin(token: string): Promise<{ accessToken: string; user: { id: string; email: string; name: string; role: UserRole } }> {
