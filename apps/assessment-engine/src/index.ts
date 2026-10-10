@@ -277,71 +277,54 @@ async function main(): Promise<void> {
       let aiReport = "";
 
       if (isValid) {
+        const metricsPrompt = [
+          "You are a senior mechanical engineer performing a quantitative and qualitative design review of a CAD model.",
+          "The following physical metrics were extracted from the model:",
+          `- Volume: ${volume} cubic units`,
+          `- Surface Area: ${surfaceArea} square units`,
+          `- Bounding Box: [${boundingBox.join(", ")}]`,
+          `- Center of Mass: [${centerOfMass.join(", ")}]`,
+          variance_mm3 !== undefined && tolerance !== null
+            ? `- The boolean difference between the target model and the user model is ${variance_mm3} mm³. The allowed tolerance is ${tolerance}.`
+            : "",
+          "",
+          "Based on the rendered image and these metrics, perform a rigorous engineering assessment.",
+          "Calculate a numerical quality score from 0 to 40 by evaluating the following criteria:",
+          "  - Geometry validity and watertightness (0–10 points)",
+          "  - Material efficiency / surface-to-volume ratio (0–10 points)",
+          "  - Symmetry and center of mass positioning (0–10 points)",
+          "  - Manufacturability and wall thickness adequacy (0–10 points)",
+          "",
+          variance_mm3 !== undefined && tolerance !== null
+            ? "If the boolean variance significantly exceeds the tolerance, this means the user uploaded the completely wrong part. You MUST output an aiScore of 0 and state that the geometry fails the problem constraints."
+            : "",
+          "Return your response as JSON matching the requested schema."
+        ].filter(Boolean).join("\n");
+
+        // 3. Evaluate using LLM Router with multi-provider fallback
         try {
-          const metricsPrompt = [
-            "You are a senior mechanical engineer performing a quantitative and qualitative design review of a CAD model.",
-            "The following physical metrics were extracted from the model:",
-            `- Volume: ${volume} cubic units`,
-            `- Surface Area: ${surfaceArea} square units`,
-            `- Bounding Box: [${boundingBox.join(", ")}]`,
-            `- Center of Mass: [${centerOfMass.join(", ")}]`,
-            variance_mm3 !== undefined && tolerance !== null
-              ? `- The boolean difference between the target model and the user model is ${variance_mm3} mm³. The allowed tolerance is ${tolerance}.`
-              : "",
-            "",
-            "Based on the rendered image and these metrics, perform a rigorous engineering assessment.",
-            "Calculate a numerical quality score from 0 to 40 by evaluating the following criteria:",
-            "  - Geometry validity and watertightness (0–10 points)",
-            "  - Material efficiency / surface-to-volume ratio (0–10 points)",
-            "  - Symmetry and center of mass positioning (0–10 points)",
-            "  - Manufacturability and wall thickness adequacy (0–10 points)",
-            "",
-            variance_mm3 !== undefined && tolerance !== null
-              ? "If the boolean variance significantly exceeds the tolerance, this means the user uploaded the completely wrong part. You MUST output an aiScore of 0 and state that the geometry fails the problem constraints."
-              : "",
-            "Return your response as JSON matching the requested schema."
-          ].filter(Boolean).join("\n");
+          console.log(`[assessment-engine] [${jobId}] Calling LLMRouter for evaluation...`);
+          const llmResult = await llmRouter.evaluate(pngBase64, metricsPrompt);
 
-          const responseSchema: Schema = {
-            type: Type.OBJECT,
-            properties: {
-              aiScore: {
-                type: Type.INTEGER,
-                description: "Numerical quality score from 0 to 40."
-              },
-              reportMarkdown: {
-                type: Type.STRING,
-                description: "Detailed Markdown engineering review."
-              }
-            },
-            required: ["aiScore", "reportMarkdown"]
-          };
-
-
-          // 3. Evaluate using LLM Router with multi-provider fallback
-          try {
-            console.log(`[assessment-engine] [${jobId}] Calling LLMRouter for evaluation...`);
-            const llmResult = await llmRouter.evaluate(pngBase64, metricsPrompt);
-
-            if (llmResult) {
-              aiScore = llmResult.score;
-              aiReport = llmResult.report;
-              console.log(`[assessment-engine] [${jobId}] LLM Evaluation successful, score=${aiScore}, provider=${llmResult.provider}`);
-            } else {
-              throw new Error("All LLM providers failed or timed out.");
-            }
-          } catch (aiErr) {
-            console.error(`[assessment-engine] [${jobId}] AI evaluation failed or timed out:`, aiErr);
-            aiScore = 0;
-            aiReport = "> **System Notice:** AI evaluation timed out or is currently unavailable. Score reflects deterministic geometric metrics only.\n\n" +
-              "## Metrics\n" +
-              `- **Volume:** ${volume.toFixed(2)} cubic units\n` +
-              `- **Surface Area:** ${surfaceArea.toFixed(2)} square units\n` +
-              `- **Surface-to-Volume Ratio (SVR):** ${svRatio.toFixed(4)}\n\n` +
-              "## Score Breakdown\n" +
-              `- Deterministic Score: **${deterministicScore}/60**\n` +
-              `- AI Score: **0/40** (Unavailable)\n`;
+          if (llmResult) {
+            aiScore = llmResult.score;
+            aiReport = llmResult.report;
+            console.log(`[assessment-engine] [${jobId}] LLM Evaluation successful, score=${aiScore}, provider=${llmResult.provider}`);
+          } else {
+            throw new Error("All LLM providers failed or timed out.");
           }
+        } catch (aiErr) {
+          console.error(`[assessment-engine] [${jobId}] AI evaluation failed or timed out:`, aiErr);
+          aiScore = 0;
+          aiReport = "> **System Notice:** AI evaluation timed out or is currently unavailable. Score reflects deterministic geometric metrics only.\n\n" +
+            "## Metrics\n" +
+            `- **Volume:** ${volume.toFixed(2)} cubic units\n` +
+            `- **Surface Area:** ${surfaceArea.toFixed(2)} square units\n` +
+            `- **Surface-to-Volume Ratio (SVR):** ${svRatio.toFixed(4)}\n\n` +
+            "## Score Breakdown\n" +
+            `- Deterministic Score: **${deterministicScore}/60**\n` +
+            `- AI Score: **0/40** (Unavailable)\n`;
+        }
       } else {
         aiReport = "> **System Notice:** Invalid geometry detected. Bounding box or volume is invalid.";
       }
