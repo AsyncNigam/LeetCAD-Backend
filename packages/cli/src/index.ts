@@ -9,6 +9,10 @@ import { registerLoginCommand } from "./commands/login.js";
 import { registerProblemsCommand } from "./commands/problems.js";
 import { registerSubmitCommand } from "./commands/submit.js";
 import { registerWhoamiCommand } from "./commands/whoami.js";
+import { registerInfoCommand } from "./commands/info.js";
+import { registerLeaderboardCommand } from "./commands/leaderboard.js";
+import { registerSubmissionsCommand } from "./commands/submissions.js";
+import { registerOpenCommand } from "./commands/open.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -33,5 +37,9 @@ registerLoginCommand(program);
 registerProblemsCommand(program);
 registerSubmitCommand(program);
 registerWhoamiCommand(program);
+registerInfoCommand(program);
+registerLeaderboardCommand(program);
+registerSubmissionsCommand(program);
+registerOpenCommand(program);
 
 program.parse(process.argv);

@@ -31,4 +31,25 @@ export class UsersController {
 
     return user;
   }
+  @Get("me/submissions")
+  @UseGuards(HybridAuthGuard)
+  @ApiOperation({ summary: "Get current user's submissions" })
+  async getMySubmissions(@Req() req: any) {
+    const userId = req.user.userId || req.user.id;
+    const submissionRepo = this.userRepository.manager.getRepository("Submission");
+    
+    const submissions = await submissionRepo.find({
+      where: { user: { id: userId } },
+      relations: { problem: true },
+      order: { createdAt: "DESC" },
+    });
+
+    return submissions.map((sub: any) => ({
+      id: sub.id,
+      problemTitle: sub.problem?.title || "Unknown Problem",
+      score: sub.score,
+      status: sub.status,
+      createdAt: sub.createdAt,
+    }));
+  }
 }
