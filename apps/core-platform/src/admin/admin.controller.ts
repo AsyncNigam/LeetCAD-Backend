@@ -76,6 +76,45 @@ export class AdminController {
   }
 
   /**
+   * PATCH /admin/users/:id/role — Change a user's role
+   * Only accessible to OWNERs.
+   */
+  @Roles(UserRole.OWNER)
+  @Post("users/:id/role")
+  async updateUserRole(
+    @Req() req: any,
+    @Body() body: { role: string }
+  ) {
+    const targetUserId = req.params.id;
+    const { role } = body;
+
+    const validRoles = Object.values(UserRole);
+    if (!validRoles.includes(role as UserRole)) {
+      throw new BadRequestException(`Invalid role. Must be one of: ${validRoles.join(", ")}`);
+    }
+
+    const repo = this.dataSource.getRepository(User);
+    const targetUser = await repo.findOne({ where: { id: targetUserId } });
+    if (!targetUser) {
+      throw new BadRequestException("User not found");
+    }
+
+    // Prevent modifying other owners
+    if (targetUser.role === UserRole.OWNER) {
+      throw new BadRequestException("Cannot modify the role of another OWNER.");
+    }
+
+    targetUser.role = role as UserRole;
+    const saved = await repo.save(targetUser);
+
+    return {
+      id: saved.id,
+      email: saved.email,
+      role: saved.role,
+    };
+  }
+
+  /**
    * POST /admin/problems — Create a new problem + get presigned URL for golden file
    *
    * Body: { title, description, difficulty, targetVolume, tolerance, filename }
