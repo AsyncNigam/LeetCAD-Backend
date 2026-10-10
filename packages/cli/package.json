@@ -1,6 +1,6 @@
 {
   "name": "@nigam_developer/leetcad",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "LeetCAD CLI — Submit, evaluate, and benchmark CAD models from the terminal",
   "type": "module",
   "license": "MIT",
@@ -8,7 +8,7 @@
   "homepage": "https://github.com/AsyncNigam/LeetCAD-Backend#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/AsyncNigam/LeetCAD-Backend.git",
+    "url": "git+https://github.com/AsyncNigam/LeetCAD-Backend.git",
     "directory": "packages/cli"
   },
   "keywords": [
@@ -23,7 +23,7 @@
     "node": ">=18"
   },
   "bin": {
-    "leetcad": "./bin/leetcad.js"
+    "leetcad": "bin/leetcad.js"
   },
   "files": [
     "bin/",
