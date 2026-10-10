@@ -89,6 +89,30 @@ export function AdminDashboard() {
       });
   }, [token, isAdmin]);
 
+  // ── Update role handler ───────────────────────────────
+  const handleRoleChange = useCallback(async (userId: string, newRole: string) => {
+    if (!token || user?.role !== "OWNER") return;
+    try {
+      const res = await fetch(`${API_BASE}/admin/users/${userId}/role`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ role: newRole }),
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.message || "Failed to update role");
+      }
+      // Update local state
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
+    } catch (err) {
+      console.error(err);
+      alert(err instanceof Error ? err.message : "Failed to update user role");
+    }
+  }, [token, user?.role]);
+
   // ── Create problem handler ────────────────────────────
   const handleCreate = useCallback(async () => {
     if (!title.trim() || !description.trim() || !file || !targetVolume) {
@@ -393,15 +417,26 @@ export function AdminDashboard() {
                     <td className="py-3 px-4 text-text-primary font-medium">{u.name}</td>
                     <td className="py-3 px-4 text-text-muted font-mono text-xs">{u.email}</td>
                     <td className="py-3 px-4">
-                      <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded ring-1 ring-inset ${
-                        u.role === "OWNER"
-                          ? "text-purple-400 bg-purple-400/10 ring-purple-400/20"
-                          : u.role === "ADMIN"
-                            ? "text-blue-400 bg-blue-400/10 ring-blue-400/20"
-                            : "text-gray-400 bg-gray-400/10 ring-gray-400/20"
-                      }`}>
-                        {u.role}
-                      </span>
+                      {user?.role === "OWNER" && u.role !== "OWNER" ? (
+                        <select
+                          value={u.role}
+                          onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                          className="bg-surface-subtle border border-border text-xs rounded px-2 py-1 outline-none cursor-pointer focus:border-brand-forest transition-colors"
+                        >
+                          <option value="USER">USER</option>
+                          <option value="ADMIN">ADMIN</option>
+                        </select>
+                      ) : (
+                        <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded ring-1 ring-inset ${
+                          u.role === "OWNER"
+                            ? "text-purple-400 bg-purple-400/10 ring-purple-400/20"
+                            : u.role === "ADMIN"
+                              ? "text-blue-400 bg-blue-400/10 ring-blue-400/20"
+                              : "text-gray-400 bg-gray-400/10 ring-gray-400/20"
+                        }`}>
+                          {u.role}
+                        </span>
+                      )}
                     </td>
                     <td className="py-3 px-4 text-text-muted text-xs">
                       {new Date(u.createdAt).toLocaleDateString()}
