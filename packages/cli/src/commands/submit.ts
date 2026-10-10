@@ -138,7 +138,7 @@ export function registerSubmitCommand(program: Command) {
               console.log("\x1b[1mAI Feedback:\x1b[0m");
               console.log(data.feedback);
               process.exit(0);
-            } else if (data.status === "FAILED_KERNEL_PANIC" || data.status === "ERROR") {
+            } else if (data.status === "FAILED_KERNEL_PANIC" || data.status === "ERROR" || data.status === "FAILED") {
               console.log("\n\n\x1b[31mAssessment Failed!\x1b[0m\n");
               console.log("The CAD kernel crashed or encountered an unrecoverable error.");
               if (data.feedback) {
