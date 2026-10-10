@@ -18,7 +18,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Read package.json dynamically
-const pkgPath = path.resolve(__dirname, "../../package.json");
+const pkgPath = path.resolve(__dirname, "../package.json");
 const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
 
 // Print Banner
