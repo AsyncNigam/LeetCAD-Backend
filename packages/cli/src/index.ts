@@ -13,6 +13,7 @@ import { registerInfoCommand } from "./commands/info.js";
 import { registerLeaderboardCommand } from "./commands/leaderboard.js";
 import { registerSubmissionsCommand } from "./commands/submissions.js";
 import { registerOpenCommand } from "./commands/open.js";
+import { registerSignoutCommand } from "./commands/signout.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,8 +23,8 @@ const pkgPath = path.resolve(__dirname, "../package.json");
 const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
 
 // Print Banner
-console.log(chalk.greenBright(figlet.textSync("LeetCAD", { horizontalLayout: "full" })));
-console.log(chalk.gray(`v${pkg.version} - The CAD Assessment Engine\n`));
+console.log(chalk.magentaBright.bold(figlet.textSync("LeetCAD", { horizontalLayout: "full" })));
+console.log(chalk.cyan(`v${pkg.version} - The CAD Assessment Engine\n`));
 
 const program = new Command();
 
@@ -34,6 +35,7 @@ program
 
 // Register commands
 registerLoginCommand(program);
+registerSignoutCommand(program);
 registerProblemsCommand(program);
 registerSubmitCommand(program);
 registerWhoamiCommand(program);

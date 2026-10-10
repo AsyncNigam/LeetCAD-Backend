@@ -27,3 +27,9 @@ export function getConfig(): Config | null {
     return null;
   }
 }
+
+export function clearConfig(): void {
+  if (fs.existsSync(CONFIG_FILE)) {
+    fs.unlinkSync(CONFIG_FILE);
+  }
+}

@@ -53,35 +53,6 @@ export class ProblemsController {
     };
   }
 
-  @Get(":slug/leaderboard")
-  async getProblemLeaderboard(@Param("slug") slug: string) {
-    const repo = this.dataSource.getRepository(Problem);
-    const problems = await repo.find();
-    
-    const problem = problems.find(p => 
-      p.id === slug || 
-      p.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") === slug
-    );
-
-    if (!problem) {
-      throw new NotFoundException("Problem not found");
-    }
-
-    const submissionRepo = this.dataSource.getRepository("Submission");
-    const submissions = await submissionRepo.find({
-      where: { problem: { id: problem.id }, status: "COMPLETED" },
-      relations: { user: true },
-      order: { score: "DESC", createdAt: "ASC" },
-      take: 50,
-    });
-
-    return submissions.map((sub: any, index) => ({
-      rank: index + 1,
-      user: sub.user?.email || "Unknown",
-      score: sub.score,
-      status: sub.status,
-    }));
-  }
 
   @Post(":slug/submit")
   async submitProblem(

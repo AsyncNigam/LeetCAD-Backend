@@ -39,7 +39,7 @@ export class UsersController {
     const submissionRepo = this.userRepository.manager.getRepository("Submission");
     
     const submissions = await submissionRepo.find({
-      where: { user: { id: userId } },
+      where: { userId },
       relations: { problem: true },
       order: { createdAt: "DESC" },
     });
