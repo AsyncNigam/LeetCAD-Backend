@@ -54,6 +54,6 @@ export class AuthController {
   @ApiResponse({ status: 200, description: "Returns a long-lived JWT for CLI usage" })
   @ApiResponse({ status: 401, description: "Unauthorized" })
   async getCliToken(@Req() req: any) {
-    return this.authService.generateCliToken(req.user.id);
+    return this.authService.generateCliToken(req.user.userId);
   }
 }
