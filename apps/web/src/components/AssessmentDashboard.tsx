@@ -97,9 +97,10 @@ function PipelineStepper({ phase }: { phase: SubmissionPhase }) {
       <div className="flex items-center justify-between gap-2">
         {PIPELINE_STEPS.map((step, i) => {
           const Icon = step.icon;
-          const isDone = currentIndex > i;
+          // If phase is COMPLETED, all steps should be marked as done (including the COMPLETED step itself)
+          const isDone = phase === "COMPLETED" ? true : currentIndex > i;
           const isActive = step.key === phase;
-          const isCurrent = isActive && !isFailed;
+          const isCurrent = isActive && !isFailed && phase !== "COMPLETED";
 
           return (
             <div key={step.key} className="flex items-center gap-2 flex-1">

@@ -176,4 +176,59 @@ export class AdminController {
       uploadUrl,
     };
   }
+
+  /**
+   * PATCH /admin/problems/:id — Edit an existing problem
+   *
+   * Body: { title, description, difficulty, targetVolume, tolerance }
+   * Returns: { problem }
+   */
+  @Post("problems/:id/edit")
+  async updateProblem(
+    @Req() req: any,
+    @Body() body: {
+      title?: string;
+      description?: string;
+      difficulty?: string;
+      targetVolume?: number;
+      tolerance?: number;
+    }
+  ) {
+    const problemId = req.params.id;
+    const { title, description, difficulty, targetVolume, tolerance } = body;
+
+    const repo = this.dataSource.getRepository(Problem);
+    const problem = await repo.findOne({ where: { id: problemId } });
+
+    if (!problem) {
+      throw new BadRequestException("Problem not found");
+    }
+
+    if (title !== undefined && title.trim()) problem.title = title.trim();
+    if (description !== undefined && description.trim()) problem.description = description.trim();
+    if (targetVolume !== undefined && targetVolume > 0) problem.targetVolume = targetVolume;
+    if (tolerance !== undefined && tolerance > 0) problem.tolerance = tolerance;
+    
+    if (difficulty !== undefined) {
+      const validDifficulties = Object.values(ProblemDifficulty);
+      const normalizedDifficulty = difficulty.toUpperCase() as ProblemDifficulty;
+      if (!validDifficulties.includes(normalizedDifficulty)) {
+        throw new BadRequestException(`Difficulty must be one of: ${validDifficulties.join(", ")}`);
+      }
+      problem.difficulty = normalizedDifficulty;
+    }
+
+    const saved = await repo.save(problem);
+
+    return {
+      problem: {
+        id: saved.id,
+        title: saved.title,
+        difficulty: saved.difficulty,
+        targetVolume: saved.targetVolume,
+        tolerance: saved.tolerance,
+        goldenFileKey: saved.goldenFileKey,
+      },
+    };
+  }
 }

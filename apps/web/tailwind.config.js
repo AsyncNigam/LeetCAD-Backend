@@ -8,7 +8,7 @@ export default {
         canvas: "#F9F6F0",
         surface: {
           DEFAULT: "#FFFFFF",
-          subtle: "#F3EFE6",
+          subtle: "#F2F9F4", // Very slight light green
         },
 
         /* ── Borders (drafting grid feel) ─────────── */

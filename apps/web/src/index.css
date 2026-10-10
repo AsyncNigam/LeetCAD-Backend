@@ -55,25 +55,25 @@
 
   /* ── Panels & Cards ─────────────────────────── */
   .panel {
-    @apply bg-surface border border-border rounded-xl;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    @apply bg-surface border border-border-strong rounded-xl;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   }
 
   .panel-hover {
     @apply panel transition-all duration-200;
   }
   .panel-hover:hover {
-    @apply border-border-strong;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    @apply border-brand-forest shadow-md;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   }
 
   .panel-border {
-    @apply border border-border;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    @apply border border-border-strong bg-white;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   }
 
   .panel-subtle {
-    @apply bg-surface-subtle border border-border rounded-xl;
+    @apply bg-surface-subtle border border-border-strong rounded-xl shadow-sm;
   }
 
   /* ── Buttons ────────────────────────────────── */

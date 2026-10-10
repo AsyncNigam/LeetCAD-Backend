@@ -45,6 +45,7 @@ export function AdminDashboard() {
   // ── Platform stats ────────────────────────────────────
   const [stats, setStats] = useState<PlatformStats | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [problems, setProblems] = useState<any[]>([]);
   const [loadingStats, setLoadingStats] = useState(true);
 
   // ── Problem creation form ─────────────────────────────
@@ -57,6 +58,7 @@ export function AdminDashboard() {
   const [file, setFile] = useState<File | null>(null);
   const [phase, setPhase] = useState<CreatePhase>("IDLE");
   const [error, setError] = useState<string | null>(null);
+  const [editProblemId, setEditProblemId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Access guard ──────────────────────────────────────
@@ -77,10 +79,14 @@ export function AdminDashboard() {
       fetch(`${API_BASE}/admin/users`, {
         headers: { Authorization: `Bearer ${token}` },
       }).then((r) => r.json()),
+      fetch(`${API_BASE}/problems`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }).then((r) => r.json()),
     ])
-      .then(([statsData, usersData]) => {
+      .then(([statsData, usersData, problemsData]) => {
         setStats(statsData);
         setUsers(usersData);
+        setProblems(problemsData);
         setLoadingStats(false);
       })
       .catch((err) => {
@@ -125,6 +131,34 @@ export function AdminDashboard() {
     setPhase("SUBMITTING");
 
     try {
+      if (editProblemId) {
+        // Edit mode
+        const res = await fetch(`${API_BASE}/admin/problems/${editProblemId}/edit`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            title: title.trim(),
+            description: description.trim(),
+            difficulty,
+            targetVolume: parseFloat(targetVolume),
+            tolerance: parseFloat(tolerance),
+          }),
+        });
+
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error((body as any).message || `Failed to update (HTTP ${res.status})`);
+        }
+        
+        const { problem } = await res.json();
+        setProblems(prev => prev.map(p => p.id === problem.id ? problem : p));
+        setPhase("SUCCESS");
+        return;
+      }
+
       // Step 1: Create problem + get presigned URL
       const res = await fetch(`${API_BASE}/admin/problems`, {
         method: "POST",
@@ -194,7 +228,18 @@ export function AdminDashboard() {
           </p>
         </div>
         <button
-          onClick={() => { setShowForm(!showForm); setPhase("IDLE"); setError(null); }}
+          onClick={() => { 
+            setEditProblemId(null);
+            setTitle("");
+            setDescription("");
+            setDifficulty("EASY");
+            setTargetVolume("");
+            setTolerance("0.1");
+            setFile(null);
+            setShowForm(!showForm); 
+            setPhase("IDLE"); 
+            setError(null); 
+          }}
           className="btn-primary"
         >
           <Plus className="h-4 w-4" />
@@ -238,7 +283,7 @@ export function AdminDashboard() {
         <div className="mb-8 p-6 bg-canvas border border-border rounded-xl animate-fade-in">
           <h2 className="text-lg font-bold text-text-primary mb-6 flex items-center gap-2">
             <Plus className="h-4 w-4 text-brand-forest" />
-            Create New Problem
+            {editProblemId ? "Edit Problem" : "Create New Problem"}
           </h2>
 
           {phase === "SUCCESS" ? (
@@ -246,9 +291,11 @@ export function AdminDashboard() {
               <div className="rounded-full p-4 bg-brand-mint/20 border border-brand-mint">
                 <CheckCircle2 className="h-6 w-6 text-brand-mint-dark" />
               </div>
-              <p className="text-lg font-medium text-text-primary">Problem Created!</p>
+              <p className="text-lg font-medium text-text-primary">
+                {editProblemId ? "Problem Updated!" : "Problem Created!"}
+              </p>
               <p className="text-sm text-text-muted">
-                The golden file has been uploaded and the problem is live.
+                {editProblemId ? "The problem details have been updated." : "The golden file has been uploaded and the problem is live."}
               </p>
               <button
                 onClick={() => { setShowForm(false); setPhase("IDLE"); }}
@@ -371,18 +418,18 @@ export function AdminDashboard() {
               {/* Submit */}
               <button
                 onClick={handleCreate}
-                disabled={phase === "SUBMITTING" || phase === "UPLOADING_FILE"}
+                disabled={phase === "SUBMITTING" || (phase === "UPLOADING_FILE" && !editProblemId)}
                 className="btn-primary w-full"
               >
                 {phase === "SUBMITTING" || phase === "UPLOADING_FILE" ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    {phase === "SUBMITTING" ? "Creating problem..." : "Uploading golden file..."}
+                    {phase === "SUBMITTING" ? (editProblemId ? "Updating problem..." : "Creating problem...") : "Uploading golden file..."}
                   </>
                 ) : (
                   <>
                     <Plus className="h-4 w-4" />
-                    Create Problem
+                    {editProblemId ? "Update Problem" : "Create Problem"}
                   </>
                 )}
               </button>
@@ -391,8 +438,9 @@ export function AdminDashboard() {
         </div>
       )}
 
-      {/* ── Users Table ────────────────────────────────── */}
-      <div className="p-6 bg-canvas border border-border rounded-xl">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* ── Users Table ────────────────────────────────── */}
+        <div className="p-6 bg-canvas border border-border rounded-xl h-fit">
         <h2 className="text-lg font-bold text-text-primary mb-4 flex items-center gap-2">
           <Users className="h-4 w-4 text-brand-forest" />
           Registered Users
@@ -447,6 +495,62 @@ export function AdminDashboard() {
             </table>
           </div>
         )}
+      </div>
+
+      {/* ── Problems Table ─────────────────────────────── */}
+      <div className="p-6 bg-canvas border border-border rounded-xl h-fit">
+        <h2 className="text-lg font-bold text-text-primary mb-4 flex items-center gap-2">
+          <FileCode className="h-4 w-4 text-brand-forest" />
+          Manage Problems
+        </h2>
+
+        {problems.length === 0 ? (
+          <p className="text-sm text-text-muted py-4">No problems found.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-text-muted uppercase tracking-wider">Title</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-text-muted uppercase tracking-wider">Difficulty</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-text-muted uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {problems.map((p) => (
+                  <tr key={p.id} className="border-b border-border/50 hover:bg-surface-subtle/50 transition-colors">
+                    <td className="py-3 px-4 text-text-primary font-medium">{p.title}</td>
+                    <td className="py-3 px-4">
+                      <span className="text-[10px] uppercase font-bold px-2 py-1 rounded ring-1 ring-inset text-gray-500 bg-gray-50 ring-gray-200">
+                        {p.difficulty}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <button 
+                        className="text-xs text-brand-forest hover:underline font-semibold"
+                        onClick={() => {
+                          setEditProblemId(p.id);
+                          setTitle(p.title);
+                          setDescription(p.description);
+                          setDifficulty(p.difficulty);
+                          setTargetVolume(p.targetVolume.toString());
+                          setTolerance(p.tolerance.toString());
+                          setFile(null);
+                          setShowForm(true);
+                          setPhase("IDLE");
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                      >
+                        Edit
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
       </div>
     </div>
   );

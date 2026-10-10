@@ -72,18 +72,18 @@ export function ProblemList() {
               className="panel-hover p-5 cursor-pointer group flex flex-col"
             >
               <div className="flex justify-between items-start mb-3">
-                <h3 className="font-semibold text-lg text-text-primary group-hover:text-brand-mint transition-colors">
+                <h3 className="font-semibold text-lg text-text-primary group-hover:underline decoration-brand-forest transition-all">
                   {problem.title}
                 </h3>
                 <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded ring-1 ring-inset ${getDifficultyColor(problem.difficulty)}`}>
                   {problem.difficulty}
                 </span>
               </div>
-              <p className="text-sm text-text-muted line-clamp-3 mb-6 flex-1">
+              <p className="text-sm text-text-primary line-clamp-3 mb-6 flex-1">
                 {problem.description}
               </p>
               
-              <div className="flex items-center gap-4 text-xs text-text-faint pt-4 border-t border-border mt-auto">
+              <div className="flex items-center gap-4 text-xs text-text-muted pt-4 border-t border-border mt-auto">
                 <div className="flex items-center gap-1.5">
                   <Database className="w-3.5 h-3.5" />
                   <span>{problem.targetVolume.toLocaleString()} mm³</span>
@@ -93,7 +93,7 @@ export function ProblemList() {
                   <span>±{(problem.tolerance * 100).toFixed(1)}%</span>
                 </div>
                 <div className="ml-auto">
-                  <ChevronRight className="w-4 h-4 text-border-strong group-hover:text-brand-mint transition-colors" />
+                  <ChevronRight className="w-4 h-4 text-border-strong group-hover:text-brand-forest transition-colors" />
                 </div>
               </div>
             </div>
