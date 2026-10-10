@@ -56,7 +56,7 @@ export class StorageService implements OnModuleInit {
       ContentType: "application/octet-stream",
     });
 
-    const url = await getSignedUrl(this.publicS3, command, { expiresIn: 900 });
+    const url = await getSignedUrl(this.publicS3, command, { expiresIn: 600 });
 
     return { url, fields: {}, fileKey };
   }
@@ -74,7 +74,7 @@ export class StorageService implements OnModuleInit {
       ContentType: "application/octet-stream",
     });
 
-    const url = await getSignedUrl(this.publicS3, command, { expiresIn: 900 });
+    const url = await getSignedUrl(this.publicS3, command, { expiresIn: 600 });
 
     return { url, fileKey };
   }

@@ -9,6 +9,7 @@ import { AppModule } from "./app.module.js";
 import { winstonConfig } from "./observability/logger.config.js";
 import { DataSource } from "typeorm";
 import { Problem, ProblemDifficulty } from "./entities/Problem.js";
+import { GlobalExceptionFilter } from "./common/filters/global-exception.filter.js";
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -18,18 +19,12 @@ async function bootstrap() {
   );
 
   app.setGlobalPrefix("api");
+  app.useGlobalFilters(new GlobalExceptionFilter());
 
-  const envOrigins = process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',') : [];
+  // Strictly bound CORS to the production domain.
   const allowedOrigins = [
-    'http://localhost:5173', 
-    'http://127.0.0.1:5173', 
-    'http://localhost:5174', 
-    'http://127.0.0.1:5174',
     'https://app.leetcad.me',
-    'https://leetcad.me',
-    'https://leetcad-backend.pages.dev',
-    /^https:\/\/.*\.leetcad-backend\.pages\.dev$/,
-    ...envOrigins
+    'https://leetcad.me'
   ];
 
   // CORS must be registered BEFORE helmet to ensure preflight OPTIONS
