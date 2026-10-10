@@ -47,9 +47,13 @@ export class AuthService {
    * If the email matches OWNER_EMAIL env var, elevate to OWNER.
    */
   private resolveRole(email: string, currentRole?: UserRole): UserRole {
-    const ownerEmail = this.configService.get<string>("OWNER_EMAIL");
-    if (ownerEmail && email.toLowerCase() === ownerEmail.toLowerCase()) {
-      return UserRole.OWNER;
+    let ownerEmail = this.configService.get<string>("OWNER_EMAIL");
+    if (ownerEmail) {
+      // Clean up quotes and whitespace that might come from .env parsing
+      ownerEmail = ownerEmail.replace(/['"]+/g, '').trim().toLowerCase();
+      if (email.trim().toLowerCase() === ownerEmail) {
+        return UserRole.OWNER;
+      }
     }
     // Preserve existing role if already set (e.g., ADMIN promoted via DB)
     return currentRole || UserRole.USER;
