@@ -1,4 +1,6 @@
 import { Command } from "commander";
+import chalk from "chalk";
+import Table from "cli-table3";
 import { getConfig } from "../utils/config.js";
 
 const API_BASE_URL = process.env.LEETCAD_API_URL || "https://leetcad.me/api";
@@ -19,7 +21,7 @@ export function registerProblemsCommand(program: Command) {
 
       if (!config || !config.apiKey) {
         console.error(
-          "\x1b[31mError: Unauthenticated. Please run `leetcad login <token>` first.\x1b[0m"
+          chalk.red("Error: Unauthenticated. Please run `leetcad login <token>` first.")
         );
         process.exit(1);
       }
@@ -34,13 +36,13 @@ export function registerProblemsCommand(program: Command) {
         });
 
         if (response.status === 401) {
-          console.error("\x1b[31mError: API key is invalid or has been revoked.\x1b[0m");
+          console.error(chalk.red("Error: API key is invalid or has been revoked."));
           console.error("Please generate a new key from the web dashboard and run `leetcad login <new-key>`.");
           process.exit(1);
         }
 
         if (!response.ok) {
-          console.error(`\x1b[31mError: Server returned status ${response.status} ${response.statusText}\x1b[0m`);
+          console.error(chalk.red(`Error: Server returned status ${response.status} ${response.statusText}`));
           process.exit(1);
         }
 
@@ -51,18 +53,33 @@ export function registerProblemsCommand(program: Command) {
           return;
         }
 
-        // Format for console.table
-        const displayData = problems.map((p) => ({
-          ID: p.id.split("-")[0] + "...", // Shorten UUID
-          Title: p.title,
-          Difficulty: p.difficulty,
-          "Target Vol (mm³)": p.targetVolume.toFixed(2),
-        }));
+        const table = new Table({
+          head: [
+            chalk.cyan.bold("Title"),
+            chalk.cyan.bold("Slug"),
+            chalk.cyan.bold("Difficulty")
+          ],
+          style: { head: [], border: ["gray"] }
+        });
 
-        console.log("\n\x1b[36mAvailable LeetCAD Challenges:\x1b[0m\n");
-        console.table(displayData);
+        problems.forEach(p => {
+          const slug = p.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+          const difficultyColor = 
+            p.difficulty === "EASY" ? chalk.green 
+            : p.difficulty === "MEDIUM" ? chalk.yellow 
+            : p.difficulty === "HARD" ? chalk.red : chalk.white;
+
+          table.push([
+            p.title,
+            slug,
+            difficultyColor(p.difficulty)
+          ]);
+        });
+
+        console.log(`\n${chalk.cyan("Available LeetCAD Challenges:")}\n`);
+        console.log(table.toString());
       } catch (err: any) {
-        console.error("\x1b[31mError: Could not connect to the LeetCAD server.\x1b[0m");
+        console.error(chalk.red("Error: Could not connect to the LeetCAD server."));
         console.error(`Details: ${err.message}`);
         process.exit(1);
       }
