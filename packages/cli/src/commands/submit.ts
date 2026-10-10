@@ -67,13 +67,12 @@ export function registerSubmitCommand(program: Command) {
         console.log("\x1b[36m[2/3] Uploading CAD geometry...\x1b[0m");
         const fileBuffer = fs.readFileSync(resolvedPath);
         
-        const formData = new FormData();
-        Object.entries(fields).forEach(([k, v]) => formData.append(k, v as string));
-        formData.append("file", new Blob([fileBuffer]), filename);
-
         const uploadRes = await fetch(uploadUrl, {
-          method: "POST",
-          body: formData,
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/octet-stream",
+          },
+          body: fileBuffer,
         });
 
         if (!uploadRes.ok) {
