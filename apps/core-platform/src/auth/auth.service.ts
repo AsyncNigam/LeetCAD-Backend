@@ -120,4 +120,22 @@ export class AuthService {
 
     return { accessToken, user: { id: user.id, email: user.email, name: user.name, role: user.role } };
   }
+
+  async generateCliToken(userId: string): Promise<{ cliToken: string }> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException("User not found");
+    
+    // Generate a long-lived JWT token (1 year)
+    const cliToken = this.jwtService.sign(
+      {
+        sub: user.id,
+        email: user.email,
+        role: user.role,
+        type: "cli_token",
+      },
+      { expiresIn: "365d" }
+    );
+
+    return { cliToken };
+  }
 }

@@ -8,6 +8,7 @@ import { useRealtimeAssessment } from "./hooks/useRealtimeAssessment";
 import { AdminDashboard } from "./pages/AdminDashboard";
 import { SubmissionsHistory } from "./pages/SubmissionsHistory";
 import { Leaderboard } from "./pages/Leaderboard";
+import { DeveloperSettings } from "./pages/DeveloperSettings";
 
 function AppContent() {
   const { isAuthenticated, token } = useAuth();
@@ -34,6 +35,7 @@ function AppContent() {
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/submissions" element={<SubmissionsHistory />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
+            <Route path="/developer" element={<DeveloperSettings />} />
             <Route path="*" element={<Navigate to="/problems" replace />} />
           </Routes>
         )}

@@ -1,10 +1,11 @@
-import { Controller, Post, Body, UsePipes, ForbiddenException } from "@nestjs/common";
+import { Controller, Post, Get, Body, UsePipes, UseGuards, Req, ForbiddenException } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiBody, ApiResponse } from "@nestjs/swagger";
 import { ConfigService } from "@nestjs/config";
 import { AuthService } from "./auth.service.js";
 import { ZodValidationPipe } from "../common/pipes/zod-validation.pipe.js";
 import { GoogleLoginSchema } from "./dto/google-login.dto.js";
 import type { GoogleLoginDto } from "./dto/google-login.dto.js";
+import { JwtAuthGuard } from "./jwt-auth.guard.js";
 
 @ApiTags("Authentication")
 @Controller("auth")
@@ -45,5 +46,14 @@ export class AuthController {
     }
 
     return this.authService.devLogin();
+  }
+
+  @Get("cli-token")
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: "Generate a long-lived CLI token" })
+  @ApiResponse({ status: 200, description: "Returns a long-lived JWT for CLI usage" })
+  @ApiResponse({ status: 401, description: "Unauthorized" })
+  async getCliToken(@Req() req: any) {
+    return this.authService.generateCliToken(req.user.id);
   }
 }

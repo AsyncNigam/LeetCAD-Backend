@@ -1,4 +1,4 @@
-import { LogOut, Shield } from "lucide-react";
+import { LogOut, Shield, Terminal } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
 import { StatusIndicator } from "./StatusIndicator";
@@ -120,6 +120,19 @@ export function Navbar({ connectionStatus }: NavbarProps) {
             >
               <Shield className="h-3.5 w-3.5" />
               Admin
+            </button>
+          )}
+          {isAuthenticated && (
+            <button
+              onClick={() => navigate("/developer")}
+              className={`flex items-center gap-1.5 text-xs font-semibold tracking-wide uppercase transition-colors ${
+                location.pathname.startsWith("/developer")
+                  ? "text-brand-forest"
+                  : "text-text-muted hover:text-text-primary"
+              }`}
+            >
+              <Terminal className="h-3.5 w-3.5" />
+              Developer
             </button>
           )}
           <StatusIndicator status={connectionStatus} />
