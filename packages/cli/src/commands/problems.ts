@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { getConfig } from "../utils/config.js";
 
-const API_BASE_URL = process.env.LEETCAD_API_URL || "http://localhost:3000/api";
+const API_BASE_URL = process.env.LEETCAD_API_URL || "https://leetcad.me/api";
 
 interface Problem {
   id: string;
@@ -19,7 +19,7 @@ export function registerProblemsCommand(program: Command) {
 
       if (!config || !config.apiKey) {
         console.error(
-          "\x1b[31mError: Unauthenticated. Please run `leetcad login <api-key>` first.\x1b[0m"
+          "\x1b[31mError: Unauthenticated. Please run `leetcad login <token>` first.\x1b[0m"
         );
         process.exit(1);
       }
