@@ -168,7 +168,7 @@ function MetricCard({
   unit?: string;
 }) {
   return (
-    <div className="bg-canvas rounded-lg p-4 border border-border animate-fade-in">
+    <div className="bg-surface-subtle rounded-lg p-4 border border-border animate-fade-in">
       <div className="flex items-center gap-2 mb-2">
         <Icon className="h-3.5 w-3.5 text-text-muted" />
         <span className="text-xs uppercase tracking-wider text-text-muted">{label}</span>

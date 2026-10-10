@@ -96,9 +96,9 @@ export function ProblemWorkspace() {
   return (
     <div className="h-screen w-full flex overflow-hidden bg-canvas text-text-primary fixed inset-0 z-50">
       {/* ── Left Pane: Problem Details ──────────────────────────── */}
-      <div className="w-full md:w-1/2 border-r border-border bg-surface overflow-y-auto flex flex-col relative custom-scrollbar">
+      <div className="w-full md:w-1/2 border-r border-border overflow-y-auto flex flex-col relative custom-scrollbar bg-canvas">
         {/* Header */}
-        <div className="p-8 md:p-12 pb-6 border-b border-border sticky top-0 bg-surface/95 backdrop-blur z-10">
+        <div className="p-8 md:p-12 pb-6 border-b border-border sticky top-0 bg-canvas/95 backdrop-blur z-10">
           <button 
             onClick={() => navigate("/problems")}
             className="flex items-center gap-1.5 text-xs font-semibold text-text-muted hover:text-text-primary mb-6 transition-colors tracking-wider uppercase"
@@ -117,20 +117,20 @@ export function ProblemWorkspace() {
         </div>
 
         {/* Specifications */}
-        <div className="p-8 md:p-12 py-8 border-b border-border bg-surface-subtle">
+        <div className="p-8 md:p-12 py-8 border-b border-border bg-transparent">
           <h3 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
             <Target className="w-4 h-4" />
             Constraints
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="p-5 bg-surface border border-border shadow-sm rounded-xl">
+            <div className="panel p-5 shadow-sm">
               <div className="flex items-center gap-2 text-text-muted mb-2">
                 <Database className="w-4 h-4" />
                 <span className="text-xs font-medium tracking-wide">Target Volume</span>
               </div>
               <p className="text-xl font-mono text-text-primary tracking-tight">{problem.targetVolume.toLocaleString()} <span className="text-sm text-text-muted font-sans tracking-normal">mm³</span></p>
             </div>
-            <div className="p-5 bg-surface border border-border shadow-sm rounded-xl">
+            <div className="panel p-5 shadow-sm">
               <div className="flex items-center gap-2 text-text-muted mb-2">
                 <Ruler className="w-4 h-4" />
                 <span className="text-xs font-medium tracking-wide">Tolerance</span>
@@ -141,7 +141,7 @@ export function ProblemWorkspace() {
         </div>
 
         {/* Description Markdown */}
-        <div className="p-8 md:p-12 flex-1 prose prose-slate max-w-none bg-surface">
+        <div className="p-8 md:p-12 flex-1 prose prose-slate max-w-none bg-transparent">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
             {problem.description}
           </ReactMarkdown>
@@ -149,7 +149,7 @@ export function ProblemWorkspace() {
       </div>
 
       {/* ── Right Pane: Execution Environment ─────────────────── */}
-      <div className="w-full md:w-1/2 overflow-y-auto flex flex-col bg-surface-subtle custom-scrollbar">
+      <div className="w-full md:w-1/2 overflow-y-auto flex flex-col bg-canvas custom-scrollbar">
         <div className="flex-1 w-full flex flex-col gap-8 p-8 md:p-12">
           
           <div className="shrink-0">
